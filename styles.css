@@ -639,6 +639,16 @@ h1 {
   word-break: break-word;
 }
 
+.sticky-content a {
+  color: #1d4ed8;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.sticky-content a:hover {
+  color: #1e40af;
+}
+
 .sticky-actions {
   display: flex;
   gap: 8px;

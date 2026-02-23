@@ -870,7 +870,7 @@ function renderStickyNotes() {
 
     const body = document.createElement("div");
     body.className = "sticky-content";
-    body.textContent = note.body;
+    body.appendChild(linkifyText(note.body));
 
     const actions = document.createElement("div");
     actions.className = "sticky-actions";
@@ -907,6 +907,32 @@ function renderStickyNotes() {
 
     stickyGrid.appendChild(card);
   });
+}
+
+function linkifyText(text) {
+  const fragment = document.createDocumentFragment();
+  if (!text) return fragment;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  let lastIndex = 0;
+  let match;
+  while ((match = urlRegex.exec(text)) !== null) {
+    const url = match[0];
+    const start = match.index;
+    if (start > lastIndex) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex, start)));
+    }
+    const link = document.createElement("a");
+    link.href = url;
+    link.textContent = url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    fragment.appendChild(link);
+    lastIndex = start + url.length;
+  }
+  if (lastIndex < text.length) {
+    fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+  }
+  return fragment;
 }
 
 function reorderStickyNotes(dragId, targetId) {

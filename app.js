@@ -39,11 +39,23 @@ const DATE_LABELS_KEY = "task-organizer:day-dates";
 const SCHEDULE_NOTES_KEY = "task-organizer:schedule-notes";
 const AUTH_PASSWORD = " ";
 const AUTH_KEY = "task-organizer:auth";
+const STICKY_KEY = "task-organizer:sticky-notes";
 
 const authModal = document.getElementById("auth-modal");
 const authForm = document.getElementById("auth-form");
 const authPassword = document.getElementById("auth-password");
 const authError = document.getElementById("auth-error");
+const stickyGrid = document.getElementById("sticky-grid");
+const stickyEmpty = document.getElementById("sticky-empty");
+const stickyModal = document.getElementById("sticky-modal");
+const stickyForm = document.getElementById("sticky-form");
+const stickyIdField = document.getElementById("sticky-id");
+const stickyTitleField = document.getElementById("sticky-title");
+const stickyBodyField = document.getElementById("sticky-body");
+const stickyModalTitle = document.getElementById("sticky-modal-title");
+const openSticky = document.getElementById("open-sticky");
+const closeSticky = document.getElementById("close-sticky");
+const cancelSticky = document.getElementById("cancel-sticky");
 
 const TIMEFRAMES = ["Today", "Tomorrow", "End of the week", "Next month", "Way out"];
 const TIMEFRAME_ARCS = {
@@ -60,6 +72,7 @@ let dragTarget = null;
 let dragOffset = { x: 0, y: 0 };
 let scheduleNotes = loadScheduleNotes();
 let dayDates = loadDayDates();
+let stickyNotes = loadStickyNotes();
 
 function loadTasks() {
   try {
@@ -111,6 +124,19 @@ function saveScheduleNotes() {
   localStorage.setItem(SCHEDULE_NOTES_KEY, JSON.stringify(scheduleNotes));
 }
 
+function loadStickyNotes() {
+  try {
+    const raw = localStorage.getItem(STICKY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStickyNotes() {
+  localStorage.setItem(STICKY_KEY, JSON.stringify(stickyNotes));
+}
+
 function isAuthed() {
   return sessionStorage.getItem(AUTH_KEY) === "true";
 }
@@ -129,6 +155,27 @@ function unlockApp() {
   authModal.classList.remove("show");
   authModal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("locked");
+}
+
+function openStickyModal(note = null) {
+  stickyModal.classList.add("show");
+  stickyModal.setAttribute("aria-hidden", "false");
+  if (note) {
+    stickyModalTitle.textContent = "Edit Sticky Note";
+    stickyIdField.value = note.id;
+    stickyTitleField.value = note.title;
+    stickyBodyField.value = note.body;
+  } else {
+    stickyModalTitle.textContent = "Add Sticky Note";
+    stickyIdField.value = "";
+    stickyForm.reset();
+  }
+  stickyTitleField.focus();
+}
+
+function closeStickyModal() {
+  stickyModal.classList.remove("show");
+  stickyModal.setAttribute("aria-hidden", "true");
 }
 
 function filteredTasks() {
@@ -807,6 +854,90 @@ function renderCompletedList() {
   completedList.appendChild(ul);
 }
 
+function renderStickyNotes() {
+  stickyGrid.innerHTML = "";
+  stickyEmpty.style.display = stickyNotes.length ? "none" : "block";
+  stickyNotes.forEach((note, index) => {
+    const card = document.createElement("div");
+    card.className = "sticky-note";
+    card.draggable = true;
+    card.dataset.stickyId = note.id;
+    card.dataset.index = String(index);
+
+    const title = document.createElement("div");
+    title.className = "sticky-title";
+    title.textContent = note.title;
+
+    const body = document.createElement("div");
+    body.className = "sticky-content";
+    body.textContent = note.body;
+
+    const actions = document.createElement("div");
+    actions.className = "sticky-actions";
+
+    const editBtn = document.createElement("button");
+    editBtn.className = "icon-btn";
+    editBtn.textContent = "Edit";
+    editBtn.addEventListener("click", () => openStickyModal(note));
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "icon-btn";
+    deleteBtn.textContent = "Delete";
+    deleteBtn.addEventListener("click", () => {
+      stickyNotes = stickyNotes.filter((n) => n.id !== note.id);
+      saveStickyNotes();
+      renderStickyNotes();
+    });
+
+    actions.appendChild(editBtn);
+    actions.appendChild(deleteBtn);
+
+    card.appendChild(title);
+    card.appendChild(body);
+    card.appendChild(actions);
+
+    card.addEventListener("dragstart", (e) => {
+      card.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", note.id);
+    });
+    card.addEventListener("dragend", () => {
+      card.classList.remove("dragging");
+    });
+
+    stickyGrid.appendChild(card);
+  });
+}
+
+function reorderStickyNotes(dragId, targetId) {
+  if (dragId === targetId) return;
+  const fromIndex = stickyNotes.findIndex((n) => n.id === dragId);
+  const toIndex = stickyNotes.findIndex((n) => n.id === targetId);
+  if (fromIndex === -1 || toIndex === -1) return;
+  const updated = [...stickyNotes];
+  const [moved] = updated.splice(fromIndex, 1);
+  updated.splice(toIndex, 0, moved);
+  stickyNotes = updated;
+  saveStickyNotes();
+  renderStickyNotes();
+}
+
+stickyGrid.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  const target = e.target.closest(".sticky-note");
+  if (!target) return;
+  const dragging = stickyGrid.querySelector(".sticky-note.dragging");
+  if (!dragging || dragging === target) return;
+});
+
+stickyGrid.addEventListener("drop", (e) => {
+  e.preventDefault();
+  const dragId = e.dataTransfer.getData("text/plain");
+  const target = e.target.closest(".sticky-note");
+  if (!target) return;
+  reorderStickyNotes(dragId, target.dataset.stickyId);
+});
+
 authForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const value = authPassword.value;
@@ -821,6 +952,36 @@ authForm.addEventListener("submit", (e) => {
 if (!isAuthed()) {
   lockApp();
 }
+
+openSticky.addEventListener("click", () => openStickyModal());
+closeSticky.addEventListener("click", closeStickyModal);
+cancelSticky.addEventListener("click", closeStickyModal);
+stickyModal.addEventListener("click", (e) => {
+  if (e.target === stickyModal) closeStickyModal();
+});
+stickyForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(stickyForm).entries());
+  if (!data.title || !data.title.trim()) return;
+  const id = stickyIdField.value;
+  if (id) {
+    stickyNotes = stickyNotes.map((n) =>
+      n.id === id
+        ? { ...n, title: data.title.trim(), body: data.body.trim() }
+        : n
+    );
+  } else {
+    stickyNotes.unshift({
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      title: data.title.trim(),
+      body: data.body ? data.body.trim() : "",
+      createdAt: Date.now(),
+    });
+  }
+  saveStickyNotes();
+  renderStickyNotes();
+  closeStickyModal();
+});
 
 form.addEventListener("submit", (e) => {
   e.preventDefault();
@@ -946,3 +1107,4 @@ noteForm.addEventListener("submit", (e) => {
 bindScheduleToggle();
 renderScheduleNotes();
 render();
+renderStickyNotes();

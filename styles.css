@@ -565,6 +565,86 @@ h1 {
   font-family: "Manrope", sans-serif;
 }
 
+.sticky-card h2 {
+  margin: 0 0 4px;
+  font-family: "Manrope", sans-serif;
+  font-size: 20px;
+}
+
+.sticky-card p {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: 13px;
+}
+
+.sticky-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.sticky-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.sticky-empty {
+  color: var(--ink-500);
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.sticky-note {
+  background: #fff8cf;
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  border-radius: 14px;
+  padding: 12px;
+  min-height: 140px;
+  box-shadow: 0 12px 24px rgba(250, 204, 21, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sticky-note.dragging {
+  opacity: 0.6;
+  transform: rotate(-1deg);
+}
+
+.sticky-title {
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.sticky-body {
+  width: 100%;
+  min-height: 160px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.sticky-content {
+  font-size: 12px;
+  color: var(--ink-700);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sticky-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
 .form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -646,6 +726,7 @@ h1 {
   .actions { flex-direction: column; align-items: stretch; }
   .schedule-header { grid-template-columns: 1fr; }
   .schedule-grid { grid-template-columns: 1fr; }
+  .sticky-header { flex-direction: column; align-items: flex-start; }
 }
 
 

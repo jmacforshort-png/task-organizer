@@ -175,6 +175,18 @@
       </div>
 </section>
 
+    <section class="card sticky-card">
+      <div class="sticky-header">
+        <div>
+          <h2>Sticky Notes</h2>
+          <p>Quick notes and links pinned below.</p>
+        </div>
+        <button class="btn ghost" id="open-sticky">Add Sticky Note</button>
+      </div>
+      <div class="sticky-grid" id="sticky-grid"></div>
+      <div class="sticky-empty" id="sticky-empty">No sticky notes yet.</div>
+    </section>
+
     <footer class="footer">Stored locally in your browser. No account needed.</footer>
   </div>
 
@@ -266,6 +278,30 @@
         <button class="icon-btn" id="close-completed">Close</button>
       </div>
       <div class="completed-list" id="completed-list"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="sticky-modal" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="sticky-modal-title">Add Sticky Note</h2>
+        <button class="icon-btn" id="close-sticky">Close</button>
+      </div>
+      <form id="sticky-form" class="form">
+        <input type="hidden" id="sticky-id" name="stickyId" />
+        <div class="field span-2">
+          <label for="sticky-title">Title</label>
+          <input id="sticky-title" name="title" type="text" placeholder="e.g., Field Trip Links" required />
+        </div>
+        <div class="field span-2">
+          <label for="sticky-body">Notes / links</label>
+          <textarea id="sticky-body" name="body" class="sticky-body" placeholder="Paste links or write notes..."></textarea>
+        </div>
+        <div class="actions span-2">
+          <button class="btn primary" type="submit" id="save-sticky">Save Note</button>
+          <button class="btn ghost" type="button" id="cancel-sticky">Cancel</button>
+        </div>
+      </form>
     </div>
   </div>
 

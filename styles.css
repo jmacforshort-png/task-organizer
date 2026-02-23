@@ -100,10 +100,11 @@ body.locked .app {
 }
 
 .topbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
+  gap: 12px 16px;
   margin-bottom: 16px;
 }
 
@@ -111,6 +112,8 @@ body.locked .app {
   display: flex;
   align-items: center;
   gap: 14px;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .logo {
@@ -140,13 +143,25 @@ h1 {
 }
 
 .top-actions {
+  grid-column: 1 / -1;
+  grid-row: 2;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: nowrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   overflow-x: auto;
-  padding-bottom: 2px;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.top-actions::-webkit-scrollbar {
+  height: 6px;
+}
+
+.top-actions::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.18);
+  border-radius: 999px;
 }
 
 .stats {
@@ -157,6 +172,9 @@ h1 {
   font-weight: 700;
   font-size: 12px;
   white-space: nowrap;
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
 }
 
 .trash-icon {

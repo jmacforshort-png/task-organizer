@@ -155,7 +155,7 @@ function filteredTasks() {
 function updateStats() {
   const total = tasks.length;
   const done = tasks.filter((t) => t.done).length;
-  stats.textContent = `${total} total • ${done} done`;
+  stats.innerHTML = `${total} total • ${done} done <span class="trash-icon" aria-hidden="true">🗑</span>`;
 }
 
 function openModalView(task = null) {

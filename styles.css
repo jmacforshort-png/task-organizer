@@ -89,23 +89,6 @@ body.locked .app {
   font-size: 0.95rem;
 }
 
-.transfer-area {
-  width: 100%;
-  min-height: 140px;
-  resize: vertical;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 0.9rem;
-}
-
-.transfer-status {
-  margin-top: 10px;
-  color: var(--ink-700);
-  font-weight: 600;
-  min-height: 18px;
-}
 
 .app {
   max-width: 1420px;

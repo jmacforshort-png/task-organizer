@@ -187,7 +187,13 @@
       <div class="sticky-empty" id="sticky-empty">No sticky notes yet.</div>
     </section>
 
-    <footer class="footer">Stored locally in your browser. No account needed.</footer>
+    <footer class="footer">
+      <div class="auth-bar">
+        <span class="auth-status" id="cloud-status">Cloud Sync: Not connected</span>
+        <button class="btn ghost small" id="open-cloud">Cloud Sync</button>
+      </div>
+      Stored locally in your browser. No account needed.
+    </footer>
   </div>
 
   <div class="modal" id="modal" aria-hidden="true">
@@ -325,6 +331,32 @@
     </div>
   </div>
 
+  <div class="modal" id="cloud-modal" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Cloud Sync</h2>
+        <button class="icon-btn" id="close-cloud">Close</button>
+      </div>
+      <form id="cloud-form" class="form">
+        <div class="field span-2">
+          <label for="cloud-email">Email</label>
+          <input id="cloud-email" name="email" type="email" autocomplete="email" required />
+        </div>
+        <div class="field span-2">
+          <label for="cloud-password">Password</label>
+          <input id="cloud-password" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <div class="actions span-2">
+          <button class="btn primary" type="submit">Sign In</button>
+          <button class="btn ghost" type="button" id="cloud-signup">Create Account</button>
+          <button class="btn ghost" type="button" id="cloud-signout">Sign Out</button>
+        </div>
+        <div class="cloud-status" id="cloud-feedback" role="alert" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="app.js"></script>
 </body>
 </html>

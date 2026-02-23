@@ -40,11 +40,24 @@ const SCHEDULE_NOTES_KEY = "task-organizer:schedule-notes";
 const AUTH_PASSWORD = " ";
 const AUTH_KEY = "task-organizer:auth";
 const STICKY_KEY = "task-organizer:sticky-notes";
+const SUPABASE_URL = "https://qobroovizfpgwxunhlrj.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_AjE8R1VWav7l6iXNMD5pJw_Qn8qt7Y8";
+const CLOUD_TABLE = "task_organizer_state";
 
 const authModal = document.getElementById("auth-modal");
 const authForm = document.getElementById("auth-form");
 const authPassword = document.getElementById("auth-password");
 const authError = document.getElementById("auth-error");
+const cloudModal = document.getElementById("cloud-modal");
+const cloudForm = document.getElementById("cloud-form");
+const cloudEmail = document.getElementById("cloud-email");
+const cloudPassword = document.getElementById("cloud-password");
+const cloudFeedback = document.getElementById("cloud-feedback");
+const cloudStatus = document.getElementById("cloud-status");
+const openCloud = document.getElementById("open-cloud");
+const closeCloud = document.getElementById("close-cloud");
+const cloudSignup = document.getElementById("cloud-signup");
+const cloudSignout = document.getElementById("cloud-signout");
 const stickyGrid = document.getElementById("sticky-grid");
 const stickyEmpty = document.getElementById("sticky-empty");
 const stickyModal = document.getElementById("sticky-modal");
@@ -73,6 +86,11 @@ let dragOffset = { x: 0, y: 0 };
 let scheduleNotes = loadScheduleNotes();
 let dayDates = loadDayDates();
 let stickyNotes = loadStickyNotes();
+let supabaseClient = null;
+let cloudReady = false;
+let isApplyingCloudState = false;
+let cloudSaveTimer = null;
+let cloudUserId = null;
 
 function loadTasks() {
   try {
@@ -96,6 +114,7 @@ function loadTasks() {
 
 function saveTasks() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  scheduleCloudSave();
 }
 
 function loadScheduleNotes() {
@@ -118,10 +137,12 @@ function loadDayDates() {
 
 function saveDayDates() {
   localStorage.setItem(DATE_LABELS_KEY, JSON.stringify(dayDates));
+  scheduleCloudSave();
 }
 
 function saveScheduleNotes() {
   localStorage.setItem(SCHEDULE_NOTES_KEY, JSON.stringify(scheduleNotes));
+  scheduleCloudSave();
 }
 
 function loadStickyNotes() {
@@ -135,6 +156,7 @@ function loadStickyNotes() {
 
 function saveStickyNotes() {
   localStorage.setItem(STICKY_KEY, JSON.stringify(stickyNotes));
+  scheduleCloudSave();
 }
 
 function isAuthed() {
@@ -155,6 +177,125 @@ function unlockApp() {
   authModal.classList.remove("show");
   authModal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("locked");
+}
+
+function isSupabaseConfigured() {
+  return (
+    SUPABASE_URL &&
+    SUPABASE_ANON_KEY &&
+    !SUPABASE_URL.includes("YOUR_SUPABASE_URL") &&
+    !SUPABASE_ANON_KEY.includes("YOUR_SUPABASE_ANON_KEY")
+  );
+}
+
+function openCloudModal() {
+  cloudFeedback.textContent = "";
+  cloudModal.classList.add("show");
+  cloudModal.setAttribute("aria-hidden", "false");
+  cloudEmail.focus();
+}
+
+function closeCloudModal() {
+  cloudModal.classList.remove("show");
+  cloudModal.setAttribute("aria-hidden", "true");
+}
+
+function updateCloudStatus(text) {
+  cloudStatus.textContent = text;
+}
+
+async function initSupabase() {
+  if (!isSupabaseConfigured() || !window.supabase) {
+    updateCloudStatus("Cloud Sync: Not configured");
+    openCloud.setAttribute("disabled", "disabled");
+    return;
+  }
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  if (sessionData.session) {
+    cloudReady = true;
+    cloudUserId = sessionData.session.user.id;
+    updateCloudStatus("Cloud Sync: Connected");
+    await hydrateFromCloud();
+  } else {
+    updateCloudStatus("Cloud Sync: Signed out");
+  }
+
+  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    if (session) {
+      cloudReady = true;
+      cloudUserId = session.user.id;
+      updateCloudStatus("Cloud Sync: Connected");
+      await hydrateFromCloud();
+    } else {
+      cloudReady = false;
+      cloudUserId = null;
+      updateCloudStatus("Cloud Sync: Signed out");
+    }
+  });
+}
+
+function buildCloudPayload() {
+  return {
+    tasks,
+    dayDates,
+    scheduleNotes,
+    stickyNotes,
+    updatedAt: Date.now(),
+  };
+}
+
+function applyCloudPayload(payload) {
+  if (!payload) return;
+  isApplyingCloudState = true;
+  tasks = payload.tasks || [];
+  dayDates = payload.dayDates || {};
+  scheduleNotes = payload.scheduleNotes || {};
+  stickyNotes = payload.stickyNotes || [];
+  saveTasks();
+  saveDayDates();
+  saveScheduleNotes();
+  saveStickyNotes();
+  isApplyingCloudState = false;
+  renderDayDates();
+  renderScheduleNotes();
+  renderStickyNotes();
+  render();
+}
+
+async function hydrateFromCloud() {
+  if (!supabaseClient || !cloudReady) return;
+  const { data, error } = await supabaseClient
+    .from(CLOUD_TABLE)
+    .select("data")
+    .single();
+  if (error && error.code !== "PGRST116") {
+    cloudFeedback.textContent = "Sync error. Check your connection.";
+    return;
+  }
+  if (data && data.data) {
+    applyCloudPayload(data.data);
+  } else {
+    await saveCloudNow();
+  }
+}
+
+async function saveCloudNow() {
+  if (!supabaseClient || !cloudReady || !cloudUserId) return;
+  const payload = buildCloudPayload();
+  await supabaseClient.from(CLOUD_TABLE).upsert({
+    user_id: cloudUserId,
+    data: payload,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+function scheduleCloudSave() {
+  if (isApplyingCloudState || !cloudReady) return;
+  if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(() => {
+    saveCloudNow();
+  }, 600);
 }
 
 function openStickyModal(note = null) {
@@ -1009,6 +1150,47 @@ stickyForm.addEventListener("submit", (e) => {
   closeStickyModal();
 });
 
+openCloud.addEventListener("click", openCloudModal);
+closeCloud.addEventListener("click", closeCloudModal);
+cloudModal.addEventListener("click", (e) => {
+  if (e.target === cloudModal) closeCloudModal();
+});
+cloudForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!supabaseClient) {
+    cloudFeedback.textContent = "Cloud sync is not configured yet.";
+    return;
+  }
+  const email = cloudEmail.value.trim();
+  const password = cloudPassword.value;
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (error) {
+    cloudFeedback.textContent = error.message || "Sign in failed.";
+    return;
+  }
+  cloudFeedback.textContent = "Signed in.";
+  closeCloudModal();
+});
+cloudSignup.addEventListener("click", async () => {
+  if (!supabaseClient) {
+    cloudFeedback.textContent = "Cloud sync is not configured yet.";
+    return;
+  }
+  const email = cloudEmail.value.trim();
+  const password = cloudPassword.value;
+  const { error } = await supabaseClient.auth.signUp({ email, password });
+  if (error) {
+    cloudFeedback.textContent = error.message || "Sign up failed.";
+    return;
+  }
+  cloudFeedback.textContent = "Account created. Check your email if confirmation is enabled.";
+});
+cloudSignout.addEventListener("click", async () => {
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+  cloudFeedback.textContent = "Signed out.";
+});
+
 form.addEventListener("submit", (e) => {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(form).entries());
@@ -1134,3 +1316,4 @@ bindScheduleToggle();
 renderScheduleNotes();
 render();
 renderStickyNotes();
+initSupabase();

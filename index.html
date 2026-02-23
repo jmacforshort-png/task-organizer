@@ -32,6 +32,7 @@
       <div class="top-actions">
         <div class="stats" id="stats">0 total • 0 done</div>
         <button class="btn primary" id="open-modal">Add a To-Do</button>
+        <button class="btn ghost" id="open-transfer">Import/Export</button>
         <button class="btn ghost" id="open-completed">Completed List</button>
         <button class="btn danger" id="toggle-tasks">Hide Tasks</button>
         <a class="btn gmail" href="https://mail.google.com/" target="_blank" rel="noopener">Gmail</a>
@@ -266,6 +267,26 @@
         <button class="icon-btn" id="close-completed">Close</button>
       </div>
       <div class="completed-list" id="completed-list"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="transfer-modal" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Import / Export</h2>
+        <button class="icon-btn" id="close-transfer">Close</button>
+      </div>
+      <div class="form">
+        <div class="field span-2">
+          <label for="transfer-data">Transfer Data</label>
+          <textarea id="transfer-data" class="transfer-area" placeholder="Paste export here..."></textarea>
+        </div>
+        <div class="actions span-2">
+          <button class="btn primary" type="button" id="export-data">Export</button>
+          <button class="btn ghost" type="button" id="import-data">Import</button>
+        </div>
+        <div class="transfer-status" id="transfer-status" role="alert" aria-live="polite"></div>
+      </div>
     </div>
   </div>
 

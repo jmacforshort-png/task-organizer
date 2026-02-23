@@ -39,11 +39,23 @@ const DATE_LABELS_KEY = "task-organizer:day-dates";
 const SCHEDULE_NOTES_KEY = "task-organizer:schedule-notes";
 const AUTH_PASSWORD = " ";
 const AUTH_KEY = "task-organizer:auth";
+const TRANSFER_KEYS = [
+  "task-organizer:stable",
+  "task-organizer:day-dates",
+  "task-organizer:schedule-notes",
+];
 
 const authModal = document.getElementById("auth-modal");
 const authForm = document.getElementById("auth-form");
 const authPassword = document.getElementById("auth-password");
 const authError = document.getElementById("auth-error");
+const transferModal = document.getElementById("transfer-modal");
+const openTransfer = document.getElementById("open-transfer");
+const closeTransfer = document.getElementById("close-transfer");
+const transferData = document.getElementById("transfer-data");
+const transferStatus = document.getElementById("transfer-status");
+const exportDataBtn = document.getElementById("export-data");
+const importDataBtn = document.getElementById("import-data");
 
 const TIMEFRAMES = ["Today", "Tomorrow", "End of the week", "Next month", "Way out"];
 const TIMEFRAME_ARCS = {
@@ -129,6 +141,35 @@ function unlockApp() {
   authModal.classList.remove("show");
   authModal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("locked");
+}
+
+function openTransferModal() {
+  transferStatus.textContent = "";
+  transferData.value = "";
+  transferModal.classList.add("show");
+  transferModal.setAttribute("aria-hidden", "false");
+  transferData.focus();
+}
+
+function closeTransferModal() {
+  transferModal.classList.remove("show");
+  transferModal.setAttribute("aria-hidden", "true");
+}
+
+function buildTransferPayload() {
+  const data = Object.fromEntries(
+    TRANSFER_KEYS.map((key) => [key, localStorage.getItem(key)])
+  );
+  return JSON.stringify(data);
+}
+
+function applyTransferPayload(raw) {
+  const data = JSON.parse(raw);
+  TRANSFER_KEYS.forEach((key) => {
+    if (data[key] !== undefined && data[key] !== null) {
+      localStorage.setItem(key, data[key]);
+    }
+  });
 }
 
 function filteredTasks() {
@@ -821,6 +862,30 @@ authForm.addEventListener("submit", (e) => {
 if (!isAuthed()) {
   lockApp();
 }
+
+openTransfer.addEventListener("click", openTransferModal);
+closeTransfer.addEventListener("click", closeTransferModal);
+transferModal.addEventListener("click", (e) => {
+  if (e.target === transferModal) closeTransferModal();
+});
+exportDataBtn.addEventListener("click", () => {
+  transferData.value = buildTransferPayload();
+  transferData.select();
+  transferStatus.textContent = "Export ready. Copy and save this text.";
+});
+importDataBtn.addEventListener("click", () => {
+  try {
+    if (!transferData.value.trim()) {
+      transferStatus.textContent = "Paste an export first.";
+      return;
+    }
+    applyTransferPayload(transferData.value);
+    transferStatus.textContent = "Import complete. Reloading...";
+    setTimeout(() => location.reload(), 400);
+  } catch {
+    transferStatus.textContent = "Import failed. Paste the full export text.";
+  }
+});
 
 form.addEventListener("submit", (e) => {
   e.preventDefault();

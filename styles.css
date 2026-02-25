@@ -220,6 +220,10 @@ h1 {
   background: rgba(254, 226, 226, 0.88);
 }
 
+.sync-alert[hidden] {
+  display: none !important;
+}
+
 .sync-alert-text {
   font-size: 12px;
   font-weight: 700;

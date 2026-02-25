@@ -484,13 +484,16 @@ function applyCloudPayload(payload) {
 }
 
 async function hydrateFromCloud() {
-  if (!supabaseClient || !cloudReady) return;
+  if (!supabaseClient || !cloudReady || !cloudUserId) return;
   const { data, error } = await supabaseClient
     .from(CLOUD_TABLE)
     .select("data")
-    .single();
-  if (error && error.code !== "PGRST116") {
-    cloudFeedback.textContent = "Sync error. Check your connection.";
+    .eq("user_id", cloudUserId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    cloudFeedback.textContent = `Sync error: ${error.message || "unknown error"}`;
     updateCloudStatus("Cloud Sync: Out of sync");
     return;
   }
@@ -508,11 +511,15 @@ async function saveCloudNow() {
     user_id: cloudUserId,
     data: payload,
     updated_at: new Date().toISOString(),
+  }, {
+    onConflict: "user_id",
   });
   if (error) {
+    cloudFeedback.textContent = `Sync error: ${error.message || "unknown error"}`;
     updateCloudStatus("Cloud Sync: Out of sync");
     return;
   }
+  cloudFeedback.textContent = "Cloud sync saved.";
   updateCloudStatus("Cloud Sync: Connected");
 }
 

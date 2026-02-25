@@ -21,6 +21,13 @@
   </div>
 
   <div class="app">
+    <div class="sync-alert" id="sync-alert" aria-live="polite" hidden>
+      <span class="sync-alert-text" id="sync-alert-text">Out of sync</span>
+      <div class="sync-alert-actions">
+        <button class="btn ghost tiny" id="sync-open-cloud" type="button">Sign in to sync</button>
+        <button class="icon-btn" id="sync-close" type="button">Close</button>
+      </div>
+    </div>
     <header class="topbar">
       <div class="brand">
         <div class="logo">TO</div>
@@ -29,18 +36,31 @@
           <p>Your schedule centered, tasks around it.</p>
         </div>
       </div>
-      <div class="stats" id="stats">0 total • 0 done</div>
       <div class="top-actions">
         <button class="btn primary" id="open-modal">Add a To-Do</button>
         <button class="btn ghost" id="open-completed">Completed List</button>
         <button class="btn danger" id="toggle-tasks">Hide Tasks</button>
-        <a class="btn gmail" href="https://mail.google.com/" target="_blank" rel="noopener">Gmail</a>
-        <a class="btn syllabus7" href="https://docs.google.com/document/d/1Not3sOawmX7qjIBp528UUCVINxCMOar1kHcRQXED-_s/edit?tab=t.0" target="_blank" rel="noopener">7th</a>
-        <a class="btn syllabus8" href="https://docs.google.com/document/d/1W3_hI0Swg_rlF-vmgUPIRZGQd3HuqDilYEmPYYB3ehw/edit?tab=t.0" target="_blank" rel="noopener">8th</a>
-        <a class="btn slides" href="https://docs.google.com/presentation/d/1TFLPzHoxeQ-UomsQxWV3DWp_McjuNln_OKJJyKPBRFA/edit?slide=id.g3a335a89885_0_0#slide=id.g3a335a89885_0_0" target="_blank" rel="noopener">Advisory Slides</a>
-        <a class="btn portal" href="https://ljcds.myschoolapp.com/app/faculty?svcid=edu#login" target="_blank" rel="noopener">Portal</a>
-        <a class="btn formative" href="https://app.formative.com/?_gl=1*1mdh6k9*_ga*MTg1MzgzMzQwNC4xNzU3MzYzMDgx*_ga_HDL3YFCDHB*czE3NTc0NDIzMTEkbzEkZzAkdDE3NTc0NDIzMTEkajYwJGwwJGgw*_gcl_au*MTIxNTkzMjc0Mi4xNzU3NDQyMzEx" target="_blank" rel="noopener">Formative</a>
         <a class="btn tracker" href="https://weekly-checkin-tracker.onrender.com/" target="_blank" rel="noopener">Weekly Check-in Tracker</a>
+        <div class="btn-stack">
+          <a class="btn portal" href="https://ljcds.myschoolapp.com/app/faculty?svcid=edu#login" target="_blank" rel="noopener">Portal</a>
+          <a class="btn gmail" href="https://mail.google.com/" target="_blank" rel="noopener">Gmail</a>
+        </div>
+        <div class="btn-stack">
+          <a class="btn syllabus7" href="https://docs.google.com/document/d/1Not3sOawmX7qjIBp528UUCVINxCMOar1kHcRQXED-_s/edit?tab=t.0" target="_blank" rel="noopener">7th</a>
+          <a class="btn syllabus8" href="https://docs.google.com/document/d/1W3_hI0Swg_rlF-vmgUPIRZGQd3HuqDilYEmPYYB3ehw/edit?tab=t.0" target="_blank" rel="noopener">8th</a>
+        </div>
+        <div class="btn-stack">
+          <a class="btn formative" href="https://app.formative.com/?_gl=1*1mdh6k9*_ga*MTg1MzgzMzQwNC4xNzU3MzYzMDgx*_ga_HDL3YFCDHB*czE3NTc0NDIzMTEkbzEkZzAkdDE3NTc0NDIzMTEkajYwJGwwJGgw*_gcl_au*MTIxNTkzMjc0Mi4xNzU3NDQyMzEx" target="_blank" rel="noopener">Formative</a>
+          <a class="btn slides" href="https://docs.google.com/presentation/d/1TFLPzHoxeQ-UomsQxWV3DWp_McjuNln_OKJJyKPBRFA/edit?slide=id.g3a335a89885_0_0#slide=id.g3a335a89885_0_0" target="_blank" rel="noopener">Advisory Slides</a>
+        </div>
+        <aside class="next-up-card" id="next-up-card" aria-live="polite">
+          <div class="next-up-header">
+            <h3>Next Up</h3>
+            <span id="live-clock">--:--</span>
+          </div>
+          <div class="next-up-list" id="next-up-list"></div>
+        </aside>
+        <div class="stats" id="stats">0 total • 0 done</div>
       </div>
     </header>
 
@@ -52,27 +72,31 @@
 
         <main class="schedule" id="schedule">
           <div class="schedule-card">
-            <div class="schedule-header">
-              <div class="day-label" data-day-key="xday">X Day <button class="date-btn" data-day-btn="xday" aria-label="Set date for X Day">📅</button><span class="day-date" data-day-date="xday"></span></div>
-              <div class="day-label" data-day-key="day1">Day 1 <button class="date-btn" data-day-btn="day1" aria-label="Set date for Day 1">📅</button><span class="day-date" data-day-date="day1"></span></div>
-              <div class="day-label" data-day-key="day2">Day 2 <button class="date-btn" data-day-btn="day2" aria-label="Set date for Day 2">📅</button><span class="day-date" data-day-date="day2"></span></div>
-              <div class="day-label" data-day-key="day3">Day 3 <button class="date-btn" data-day-btn="day3" aria-label="Set date for Day 3">📅</button><span class="day-date" data-day-date="day3"></span></div>
-              <div class="day-label" data-day-key="day4">Day 4 <button class="date-btn" data-day-btn="day4" aria-label="Set date for Day 4">📅</button><span class="day-date" data-day-date="day4"></span></div>
+            <div class="schedule-frame">
+              <button class="weekend-toggle sunday" id="open-sunday" type="button">Sunday</button>
+              <div class="schedule-header">
+                <div class="day-label" data-day-key="monday">Monday <span class="day-date" data-day-date="monday"></span></div>
+                <div class="day-label" data-day-key="tuesday">Tuesday <span class="day-date" data-day-date="tuesday"></span></div>
+                <div class="day-label" data-day-key="wednesday">Wednesday <span class="day-date" data-day-date="wednesday"></span></div>
+                <div class="day-label" data-day-key="thursday">Thursday <span class="day-date" data-day-date="thursday"></span></div>
+                <div class="day-label" data-day-key="friday">Friday <span class="day-date" data-day-date="friday"></span></div>
+              </div>
+              <button class="weekend-toggle saturday" id="open-saturday" type="button">Saturday</button>
             </div>
             <div class="schedule-grid">
               <div class="day-col">
                 <div class="slot surf" data-slot-id="xday-surf" data-slot-label="X Day • Surf" style="--start:0; --end:75;">Surf<br>6:00–7:15</div>
                 <div class="slot office" data-slot-id="xday-office" data-slot-label="X Day • Office Hours" style="--start:110; --end:140;">Office Hours<br>7:50–8:20</div>
                 <div class="slot blue" data-slot-id="xday-1-8" data-slot-label="X Day • 1 / 8" style="--start:145; --end:190;">1 / 8<br>8:25–9:10</div>
-                <div class="slot yellow gym" data-slot-id="xday-2" data-slot-label="X Day • 2" style="--start:195; --end:245;">2<br>9:15–10:05</div>
+                <div class="slot yellow" data-slot-id="xday-2" data-slot-label="X Day • 2" style="--start:195; --end:245;">2<br>9:15–10:05</div>
                 <div class="slot duty" data-slot-id="xday-duty-1" data-slot-label="X Day • Duty" style="--start:245; --end:260;">Duty<br>10:05–10:20</div>
                 <div class="slot pink" data-slot-id="xday-3-8" data-slot-label="X Day • 3 / 8" style="--start:260; --end:305;">3 / 8<br>10:20–11:05</div>
-                <div class="slot lunch gym" data-slot-id="xday-lunch" data-slot-label="X Day • Lunch" style="--start:305; --end:345;">Lunch<br>11:05–11:45</div>
+                <div class="slot lunch" data-slot-id="xday-lunch" data-slot-label="X Day • Lunch" style="--start:305; --end:345;">Lunch<br>11:05–11:45</div>
                 <div class="slot purple" data-slot-id="xday-4-7" data-slot-label="X Day • 4 / 7" style="--start:345; --end:390;">4 / 7<br>11:45–12:30</div>
-                <div class="slot salmon gym" data-slot-id="xday-5" data-slot-label="X Day • 5" style="--start:390; --end:440;">5<br>12:30–1:20</div>
+                <div class="slot salmon" data-slot-id="xday-5" data-slot-label="X Day • 5" style="--start:390; --end:440;">5<br>12:30–1:20</div>
                 <div class="slot duty" data-slot-id="xday-duty-2" data-slot-label="X Day • Duty" style="--start:440; --end:450;">Duty<br>1:20–1:30</div>
                 <div class="slot green" data-slot-id="xday-6-7" data-slot-label="X Day • 6 / 7" style="--start:450; --end:495;">6 / 7<br>1:30–2:15</div>
-                <div class="slot note" data-slot-id="xday-gym-pe" data-slot-label="X Day • Gym / PE" style="--start:500; --end:555;">Gym / PE<br>2:20–3:15</div>
+                <div class="slot note" data-slot-id="xday-gym-pe" data-slot-label="X Day • Last Block" style="--start:500; --end:555;">2:20–3:15</div>
               </div>
               <div class="day-col">
                 <div class="slot surf" data-slot-id="day1-surf" data-slot-label="Day 1 • Surf" style="--start:0; --end:75;">Surf<br>6:00–7:15</div>
@@ -80,19 +104,19 @@
                 <div class="slot blue" data-slot-id="day1-1-8" data-slot-label="Day 1 • 1 / 8" style="--start:145; --end:225;">1 / 8<br>8:25–9:45</div>
                 <div class="slot pink" data-slot-id="day1-3-8" data-slot-label="Day 1 • 3 / 8" style="--start:240; --end:320;">3 / 8<br>10:00–11:20</div>
                 <div class="slot tan" data-slot-id="day1-studyhall" data-slot-label="Day 1 • Study Hall" style="--start:330; --end:370;">Study Hall<br>11:30–12:10</div>
-                <div class="slot lunch gym" data-slot-id="day1-lunch" data-slot-label="Day 1 • Lunch" style="--start:370; --end:410;">Lunch<br>12:10–12:50</div>
-                <div class="slot salmon gym" data-slot-id="day1-gym-5" data-slot-label="Day 1 • Gym 5" style="--start:410; --end:490;">Gym 5<br>12:50–2:10</div>
-                <div class="slot note" data-slot-id="day1-meeting" data-slot-label="Day 1 • Team Meeting" style="--start:495; --end:555;">Tuesday<br>7th Grade Team Meeting<br>2:15–3:15</div>
+                <div class="slot lunch" data-slot-id="day1-lunch" data-slot-label="Day 1 • Lunch" style="--start:370; --end:410;">Lunch<br>12:10–12:50</div>
+                <div class="slot salmon" data-slot-id="day1-gym-5" data-slot-label="Day 1 • 5" style="--start:410; --end:490;">5<br>12:50–2:10</div>
+                <div class="slot note" data-slot-id="day1-meeting" data-slot-label="Day 1 • Seventh Meeting" style="--start:495; --end:555;">Seventh meeting<br>2:15–3:15</div>
               </div>
               <div class="day-col">
                 <div class="slot surf" data-slot-id="day2-surf" data-slot-label="Day 2 • Surf" style="--start:0; --end:75;">Surf<br>6:00–7:15</div>
                 <div class="slot office" data-slot-id="day2-office" data-slot-label="Day 2 • Office Hours" style="--start:110; --end:140;">Office Hours<br>7:50–8:20</div>
-                <div class="slot yellow gym" data-slot-id="day2-gym-2" data-slot-label="Day 2 • Gym 2" style="--start:145; --end:225;">Gym 2<br>8:25–9:45</div>
+                <div class="slot yellow" data-slot-id="day2-gym-2" data-slot-label="Day 2 • 2" style="--start:145; --end:225;">2<br>8:25–9:45</div>
                 <div class="slot purple" data-slot-id="day2-4-7" data-slot-label="Day 2 • 4 / 7" style="--start:240; --end:320;">4 / 7<br>10:00–11:20</div>
                 <div class="slot tan" data-slot-id="day2-fhao" data-slot-label="Day 2 • FHAO" style="--start:330; --end:370;">FHAO<br>11:30–12:10</div>
-                <div class="slot lunch gym" data-slot-id="day2-lunch" data-slot-label="Day 2 • Lunch" style="--start:370; --end:410;">Lunch<br>12:10–12:50</div>
+                <div class="slot lunch" data-slot-id="day2-lunch" data-slot-label="Day 2 • Lunch" style="--start:370; --end:410;">Lunch<br>12:10–12:50</div>
                 <div class="slot green" data-slot-id="day2-6-7" data-slot-label="Day 2 • 6 / 7" style="--start:410; --end:490;">6 / 7<br>12:50–2:10</div>
-                <div class="slot note" data-slot-id="day2-gym-pe" data-slot-label="Day 2 • Gym / PE" style="--start:495; --end:555;">Gym / PE<br>2:15–3:15</div>
+                <div class="slot note" data-slot-id="day2-gym-pe" data-slot-label="Day 2 • Last Block" style="--start:495; --end:555;">2:15–3:15</div>
               </div>
               <div class="day-col">
                 <div class="slot surf" data-slot-id="day3-surf" data-slot-label="Day 3 • Surf" style="--start:0; --end:75;">Surf<br>6:00–7:15</div>
@@ -100,23 +124,31 @@
                 <div class="slot pink" data-slot-id="day3-3-8" data-slot-label="Day 3 • 3 / 8" style="--start:145; --end:225;">3 / 8<br>8:25–9:45</div>
                 <div class="slot blue" data-slot-id="day3-1-8" data-slot-label="Day 3 • 1 / 8" style="--start:240; --end:320;">1 / 8<br>10:00–11:20</div>
                 <div class="slot tan" data-slot-id="day3-studyhall" data-slot-label="Day 3 • Study Hall" style="--start:330; --end:370;">Study Hall<br>11:30–12:10</div>
-                <div class="slot lunch gym" data-slot-id="day3-lunch" data-slot-label="Day 3 • Lunch" style="--start:370; --end:410;">Lunch<br>12:10–12:50</div>
-                <div class="slot salmon gym" data-slot-id="day3-gym-5" data-slot-label="Day 3 • Gym 5" style="--start:410; --end:490;">Gym 5<br>12:50–2:10</div>
-                <div class="slot note" data-slot-id="day3-meeting" data-slot-label="Day 3 • Team Meeting" style="--start:495; --end:555;">Thursday<br>8th Grade Team Meeting<br>2:15–3:15</div>
+                <div class="slot lunch" data-slot-id="day3-lunch" data-slot-label="Day 3 • Lunch" style="--start:370; --end:410;">Lunch<br>12:10–12:50</div>
+                <div class="slot salmon" data-slot-id="day3-gym-5" data-slot-label="Day 3 • 5" style="--start:410; --end:490;">5<br>12:50–2:10</div>
+                <div class="slot note" data-slot-id="day3-meeting" data-slot-label="Day 3 • Eighth Meeting" style="--start:495; --end:555;">Eighth meeting<br>2:15–3:15</div>
               </div>
               <div class="day-col">
                 <div class="slot surf" data-slot-id="day4-surf" data-slot-label="Day 4 • Surf" style="--start:0; --end:75;">Surf<br>6:00–7:15</div>
                 <div class="slot office" data-slot-id="day4-office" data-slot-label="Day 4 • Office Hours" style="--start:110; --end:140;">Office Hours<br>7:50–8:20</div>
                 <div class="slot purple" data-slot-id="day4-4-7" data-slot-label="Day 4 • 4 / 7" style="--start:145; --end:225;">4 / 7<br>8:25–9:45</div>
-                <div class="slot yellow gym" data-slot-id="day4-gym-2" data-slot-label="Day 4 • Gym 2" style="--start:240; --end:320;">Gym 2<br>10:00–11:20</div>
+                <div class="slot yellow" data-slot-id="day4-gym-2" data-slot-label="Day 4 • 2" style="--start:240; --end:320;">2<br>10:00–11:20</div>
                 <div class="slot tan" data-slot-id="day4-studyhall" data-slot-label="Day 4 • Study Hall" style="--start:330; --end:370;">Study Hall<br>11:30–12:10</div>
                 <div class="slot lunch" data-slot-id="day4-lunch" data-slot-label="Day 4 • Lunch" style="--start:370; --end:410;">Lunch<br>12:10–12:50</div>
                 <div class="slot green" data-slot-id="day4-6-7" data-slot-label="Day 4 • 6 / 7" style="--start:410; --end:490;">6 / 7<br>12:50–2:10</div>
-                <div class="slot note" data-slot-id="day4-gym-pe" data-slot-label="Day 4 • Gym / PE" style="--start:495; --end:555;">Gym / PE<br>2:15–3:15</div>
+                <div class="slot note" data-slot-id="day4-gym-pe" data-slot-label="Day 4 • Last Block" style="--start:495; --end:555;">2:15–3:15</div>
               </div>
             </div>
           </div>
         </main>
+        <section class="weekend-planner" id="weekend-planner" aria-hidden="true">
+          <div class="weekend-header">
+            <h3 id="weekend-title">Weekend Planner</h3>
+            <button class="btn ghost tiny" id="hide-weekend" type="button">Hide</button>
+          </div>
+          <div class="weekend-date" id="weekend-date"></div>
+          <div class="weekend-hours" id="weekend-hours"></div>
+        </section>
       </div>
 
       <div class="legend">
@@ -266,6 +298,17 @@
           <input id="note-title" class="note-title" placeholder="e.g., Lesson 3: Photosynthesis" />
         </div>
         <div class="field span-2">
+          <label for="block-task-input">Add Block To-Do</label>
+          <div class="task-inline">
+            <input id="block-task-input" placeholder="Type a to-do..." />
+            <button class="btn ghost tiny" id="add-block-task" type="button">Add</button>
+          </div>
+        </div>
+        <div class="field span-2">
+          <label>Block To-Dos</label>
+          <div class="block-task-list" id="block-task-list"></div>
+        </div>
+        <div class="field span-2">
           <label for="note-text">Notes / reminders / links</label>
           <textarea id="note-text" class="note-text" placeholder="Type here..."></textarea>
         </div>
@@ -274,6 +317,20 @@
           <button class="btn ghost" type="button" id="cancel-note">Cancel</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div class="modal" id="note-view-modal" aria-hidden="true">
+    <div class="modal-card note-view-card">
+      <div class="modal-header">
+        <h2 id="note-view-title">Note</h2>
+        <button class="icon-btn" id="close-note-view">X</button>
+      </div>
+      <div class="note-view-body" id="note-view-body"></div>
+      <div class="actions">
+        <button class="btn danger" type="button" id="note-view-delete">Delete</button>
+        <button class="btn ghost" type="button" id="note-view-edit">Edit</button>
+      </div>
     </div>
   </div>
 

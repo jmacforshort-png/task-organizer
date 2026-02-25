@@ -24,6 +24,9 @@ const noteForm = document.getElementById("note-form");
 const noteText = document.getElementById("note-text");
 const noteSlotId = document.getElementById("note-slot-id");
 const noteTitle = document.getElementById("note-title");
+const blockTaskInput = document.getElementById("block-task-input");
+const addBlockTask = document.getElementById("add-block-task");
+const blockTaskList = document.getElementById("block-task-list");
 const openCompleted = document.getElementById("open-completed");
 const completedModal = document.getElementById("completed-modal");
 const closeCompleted = document.getElementById("close-completed");
@@ -37,6 +40,9 @@ const clearDateBtn = document.getElementById("clear-date");
 const completedList = document.getElementById("completed-list");
 const DATE_LABELS_KEY = "task-organizer:day-dates";
 const SCHEDULE_NOTES_KEY = "task-organizer:schedule-notes";
+const SCHEDULE_COMPLETED_KEY = "task-organizer:schedule-completed";
+const DELETED_TASKS_KEY = "task-organizer:deleted-tasks";
+const LOCAL_BACKUP_KEY = "task-organizer:local-backup";
 const AUTH_PASSWORD = " ";
 const AUTH_KEY = "task-organizer:auth";
 const STICKY_KEY = "task-organizer:sticky-notes";
@@ -69,14 +75,35 @@ const stickyModalTitle = document.getElementById("sticky-modal-title");
 const openSticky = document.getElementById("open-sticky");
 const closeSticky = document.getElementById("close-sticky");
 const cancelSticky = document.getElementById("cancel-sticky");
+const noteViewModal = document.getElementById("note-view-modal");
+const noteViewTitle = document.getElementById("note-view-title");
+const noteViewBody = document.getElementById("note-view-body");
+const closeNoteView = document.getElementById("close-note-view");
+const noteViewDelete = document.getElementById("note-view-delete");
+const noteViewEdit = document.getElementById("note-view-edit");
+const syncAlert = document.getElementById("sync-alert");
+const syncAlertText = document.getElementById("sync-alert-text");
+const syncOpenCloud = document.getElementById("sync-open-cloud");
+const syncClose = document.getElementById("sync-close");
+const nextUpList = document.getElementById("next-up-list");
+const liveClock = document.getElementById("live-clock");
+const openSundayBtn = document.getElementById("open-sunday");
+const openSaturdayBtn = document.getElementById("open-saturday");
+const weekendPlanner = document.getElementById("weekend-planner");
+const weekendTitle = document.getElementById("weekend-title");
+const weekendDate = document.getElementById("weekend-date");
+const weekendHours = document.getElementById("weekend-hours");
+const hideWeekendBtn = document.getElementById("hide-weekend");
 
 const TIMEFRAMES = ["Today", "Tomorrow", "End of the week", "Next month", "Way out"];
-const TIMEFRAME_ARCS = {
-  "Today": { start: 200, end: 230 },          // top-left
-  "Tomorrow": { start: 230, end: 270 },       // left/down
-  "End of the week": { start: 270, end: 310 },// bottom
-  "Next month": { start: 310, end: 350 },     // right/down
-  "Way out": { start: 350, end: 380 },        // top-right
+const SCHEDULE_BLOCK_TASKS_KEY = "task-organizer:schedule-block-tasks";
+const WEEKEND_PLANNER_KEY = "task-organizer:weekend-planner";
+const SLOT_DAY_INDEX = {
+  xday: 1,
+  day1: 2,
+  day2: 3,
+  day3: 4,
+  day4: 5,
 };
 
 let tasks = loadTasks();
@@ -84,6 +111,8 @@ let isDragging = false;
 let dragTarget = null;
 let dragOffset = { x: 0, y: 0 };
 let scheduleNotes = loadScheduleNotes();
+let scheduleCompleted = loadScheduleCompleted();
+let deletedTaskIds = loadDeletedTaskIds();
 let dayDates = loadDayDates();
 let stickyNotes = loadStickyNotes();
 let supabaseClient = null;
@@ -91,6 +120,17 @@ let cloudReady = false;
 let isApplyingCloudState = false;
 let cloudSaveTimer = null;
 let cloudUserId = null;
+let scheduleBlockTasks = loadScheduleBlockTasks();
+let weekendPlannerNotes = loadWeekendPlannerNotes();
+const enteringTaskIds = new Set();
+const pendingTaskAnimations = new Set();
+let syncAlertDismissedAt = 0;
+let noteViewSlotId = "";
+
+function enforceSyncAlertState() {
+  const connected = /Connected/i.test(cloudStatus.textContent || "");
+  if (connected) syncAlert.hidden = true;
+}
 
 function loadTasks() {
   try {
@@ -126,6 +166,15 @@ function loadScheduleNotes() {
   }
 }
 
+function loadScheduleCompleted() {
+  try {
+    const raw = localStorage.getItem(SCHEDULE_COMPLETED_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 function loadDayDates() {
   try {
     const raw = localStorage.getItem(DATE_LABELS_KEY);
@@ -145,6 +194,62 @@ function saveScheduleNotes() {
   scheduleCloudSave();
 }
 
+function saveScheduleCompleted() {
+  localStorage.setItem(SCHEDULE_COMPLETED_KEY, JSON.stringify(scheduleCompleted));
+  scheduleCloudSave();
+}
+
+function loadDeletedTaskIds() {
+  try {
+    const raw = localStorage.getItem(DELETED_TASKS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveDeletedTaskIds() {
+  localStorage.setItem(DELETED_TASKS_KEY, JSON.stringify(deletedTaskIds));
+  scheduleCloudSave();
+}
+
+function loadScheduleBlockTasks() {
+  try {
+    const raw = localStorage.getItem(SCHEDULE_BLOCK_TASKS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveScheduleBlockTasks() {
+  localStorage.setItem(SCHEDULE_BLOCK_TASKS_KEY, JSON.stringify(scheduleBlockTasks));
+  scheduleCloudSave();
+}
+
+function loadWeekendPlannerNotes() {
+  try {
+    const raw = localStorage.getItem(WEEKEND_PLANNER_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveWeekendPlannerNotes() {
+  localStorage.setItem(WEEKEND_PLANNER_KEY, JSON.stringify(weekendPlannerNotes));
+  scheduleCloudSave();
+}
+
+function loadLocalBackup() {
+  try {
+    const raw = localStorage.getItem(LOCAL_BACKUP_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function loadStickyNotes() {
   try {
     const raw = localStorage.getItem(STICKY_KEY);
@@ -157,6 +262,24 @@ function loadStickyNotes() {
 function saveStickyNotes() {
   localStorage.setItem(STICKY_KEY, JSON.stringify(stickyNotes));
   scheduleCloudSave();
+}
+
+function backupLocalState(reason = "manual") {
+  const snapshot = {
+    reason,
+    savedAt: Date.now(),
+    data: {
+      tasks,
+      dayDates,
+      scheduleNotes,
+      scheduleCompleted,
+      deletedTaskIds,
+      scheduleBlockTasks,
+      weekendPlannerNotes,
+      stickyNotes,
+    },
+  };
+  localStorage.setItem(LOCAL_BACKUP_KEY, JSON.stringify(snapshot));
 }
 
 function isAuthed() {
@@ -202,6 +325,18 @@ function closeCloudModal() {
 
 function updateCloudStatus(text) {
   cloudStatus.textContent = text;
+  const isConnected = /Connected/i.test(text);
+  if (isConnected) {
+    syncAlertDismissedAt = 0;
+    syncAlert.hidden = true;
+    enforceSyncAlertState();
+    return;
+  }
+  const dismissedRecently = Date.now() - syncAlertDismissedAt < 5 * 60 * 1000;
+  if (dismissedRecently) return;
+  syncAlertText.textContent = "Out of sync";
+  syncAlert.hidden = false;
+  enforceSyncAlertState();
 }
 
 async function initSupabase() {
@@ -233,6 +368,11 @@ async function initSupabase() {
       updateCloudStatus("Cloud Sync: Signed out");
     }
   });
+
+  setInterval(() => {
+    if (!cloudReady || document.hidden) return;
+    hydrateFromCloud();
+  }, 30000);
 }
 
 function buildCloudPayload() {
@@ -240,27 +380,107 @@ function buildCloudPayload() {
     tasks,
     dayDates,
     scheduleNotes,
+    scheduleCompleted,
+    deletedTaskIds,
+    scheduleBlockTasks,
+    weekendPlannerNotes,
     stickyNotes,
     updatedAt: Date.now(),
   };
 }
 
+function taskTimestamp(task) {
+  return Number(task.updatedAt || task.completedAt || task.createdAt || 0);
+}
+
+function mergeDeletedTaskIds(localDeleted, cloudDeleted) {
+  const merged = { ...localDeleted };
+  Object.entries(cloudDeleted || {}).forEach(([id, ts]) => {
+    const localTs = Number(merged[id] || 0);
+    const remoteTs = Number(ts || 0);
+    if (remoteTs > localTs) merged[id] = remoteTs;
+  });
+  return merged;
+}
+
+function mergeTasks(localTasks, cloudTasks, deletedMap) {
+  const merged = new Map();
+  const ingest = (task) => {
+    if (!task || !task.id) return;
+    const existing = merged.get(task.id);
+    if (!existing || taskTimestamp(task) >= taskTimestamp(existing)) {
+      merged.set(task.id, task);
+    }
+  };
+  (localTasks || []).forEach(ingest);
+  (cloudTasks || []).forEach(ingest);
+  const result = [];
+  merged.forEach((task, id) => {
+    const deletedAt = Number((deletedMap || {})[id] || 0);
+    if (deletedAt > taskTimestamp(task)) return;
+    result.push(task);
+  });
+  return result.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+function recoverMissingTasksFromBackup() {
+  const backup = loadLocalBackup();
+  const backupTasks = Array.isArray(backup?.data?.tasks) ? backup.data.tasks : [];
+  if (!backupTasks.length) return;
+
+  const now = Date.now();
+  const recentWindowMs = 7 * 24 * 60 * 60 * 1000;
+  const currentIds = new Set(tasks.map((t) => t.id));
+  const recovered = [];
+
+  for (const task of backupTasks) {
+    if (!task || !task.id) continue;
+    if (currentIds.has(task.id)) continue;
+    const deletedAt = Number(deletedTaskIds[task.id] || 0);
+    const updatedAt = taskTimestamp(task);
+    if (deletedAt > updatedAt) continue;
+    if ((task.createdAt || 0) < now - recentWindowMs) continue;
+    recovered.push(task);
+  }
+
+  if (!recovered.length) return;
+  tasks = mergeTasks(tasks, recovered, deletedTaskIds);
+  saveTasks();
+}
+
 function applyCloudPayload(payload) {
   if (!payload) return;
+  backupLocalState("before-cloud-apply");
   isApplyingCloudState = true;
-  tasks = payload.tasks || [];
+  const localTasks = Array.isArray(tasks) ? tasks : [];
+  const cloudTasks = Array.isArray(payload.tasks) ? payload.tasks : [];
+  const localStickyNotes = Array.isArray(stickyNotes) ? stickyNotes : [];
+  const cloudStickyNotes = Array.isArray(payload.stickyNotes) ? payload.stickyNotes : [];
+  deletedTaskIds = mergeDeletedTaskIds(deletedTaskIds, payload.deletedTaskIds || {});
+  tasks = mergeTasks(localTasks, cloudTasks, deletedTaskIds);
   dayDates = payload.dayDates || {};
   scheduleNotes = payload.scheduleNotes || {};
-  stickyNotes = payload.stickyNotes || [];
+  scheduleCompleted = payload.scheduleCompleted || {};
+  scheduleBlockTasks = payload.scheduleBlockTasks || {};
+  weekendPlannerNotes = payload.weekendPlannerNotes || {};
+  stickyNotes = mergeStickyNotes(localStickyNotes, cloudStickyNotes);
   saveTasks();
   saveDayDates();
   saveScheduleNotes();
+  saveScheduleCompleted();
+  saveDeletedTaskIds();
+  saveScheduleBlockTasks();
+  saveWeekendPlannerNotes();
   saveStickyNotes();
   isApplyingCloudState = false;
   renderDayDates();
+  renderScheduleCompletion();
+  renderBlockMeta();
   renderScheduleNotes();
+  renderNextUpPanel();
   renderStickyNotes();
   render();
+  scheduleCloudSave();
 }
 
 async function hydrateFromCloud() {
@@ -271,6 +491,7 @@ async function hydrateFromCloud() {
     .single();
   if (error && error.code !== "PGRST116") {
     cloudFeedback.textContent = "Sync error. Check your connection.";
+    updateCloudStatus("Cloud Sync: Out of sync");
     return;
   }
   if (data && data.data) {
@@ -283,11 +504,16 @@ async function hydrateFromCloud() {
 async function saveCloudNow() {
   if (!supabaseClient || !cloudReady || !cloudUserId) return;
   const payload = buildCloudPayload();
-  await supabaseClient.from(CLOUD_TABLE).upsert({
+  const { error } = await supabaseClient.from(CLOUD_TABLE).upsert({
     user_id: cloudUserId,
     data: payload,
     updated_at: new Date().toISOString(),
   });
+  if (error) {
+    updateCloudStatus("Cloud Sync: Out of sync");
+    return;
+  }
+  updateCloudStatus("Cloud Sync: Connected");
 }
 
 function scheduleCloudSave() {
@@ -379,6 +605,98 @@ function formatDate(ts) {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+function getWeekStartSunday(reference = new Date()) {
+  const start = new Date(reference);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - start.getDay());
+  return start;
+}
+
+function formatShortDate(date) {
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function getWeekDates() {
+  const sunday = getWeekStartSunday();
+  const monday = new Date(sunday);
+  monday.setDate(sunday.getDate() + 1);
+  const tuesday = new Date(sunday);
+  tuesday.setDate(sunday.getDate() + 2);
+  const wednesday = new Date(sunday);
+  wednesday.setDate(sunday.getDate() + 3);
+  const thursday = new Date(sunday);
+  thursday.setDate(sunday.getDate() + 4);
+  const friday = new Date(sunday);
+  friday.setDate(sunday.getDate() + 5);
+  const saturday = new Date(sunday);
+  saturday.setDate(sunday.getDate() + 6);
+  return { sunday, monday, tuesday, wednesday, thursday, friday, saturday };
+}
+
+function getSlotMeta(slot) {
+  const start = Number(slot.style.getPropertyValue("--start") || 0);
+  const end = Number(slot.style.getPropertyValue("--end") || 0);
+  const slotId = slot.dataset.slotId || "";
+  const dayPrefix = slotId.split("-")[0];
+  const dayIndex = SLOT_DAY_INDEX[dayPrefix];
+  return { start, end, dayIndex, slotId };
+}
+
+function minuteInDay(date = new Date()) {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function minuteFromScheduleStart(date = new Date()) {
+  return minuteInDay(date) - 360;
+}
+
+function getBlockTaskSummary(slotId) {
+  const list = scheduleBlockTasks[slotId] || [];
+  const pending = list.filter((item) => !item.done).length;
+  const total = list.length;
+  return { pending, total };
+}
+
+function renderBlockTaskEditor(slotId) {
+  const tasksForSlot = scheduleBlockTasks[slotId] || [];
+  blockTaskList.innerHTML = "";
+  tasksForSlot.forEach((task) => {
+    const row = document.createElement("label");
+    row.className = "block-task-row";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = Boolean(task.done);
+    check.addEventListener("change", () => {
+      const next = (scheduleBlockTasks[slotId] || []).map((item) =>
+        item.id === task.id ? { ...item, done: check.checked } : item
+      );
+      scheduleBlockTasks[slotId] = next;
+      saveScheduleBlockTasks();
+      renderBlockTaskEditor(slotId);
+      renderBlockMeta();
+      renderNextUpPanel();
+    });
+    const text = document.createElement("span");
+    text.textContent = task.text;
+    text.className = check.checked ? "done" : "";
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "icon-btn";
+    removeBtn.textContent = "Remove";
+    removeBtn.addEventListener("click", () => {
+      scheduleBlockTasks[slotId] = (scheduleBlockTasks[slotId] || []).filter((item) => item.id !== task.id);
+      saveScheduleBlockTasks();
+      renderBlockTaskEditor(slotId);
+      renderBlockMeta();
+      renderNextUpPanel();
+    });
+    row.appendChild(check);
+    row.appendChild(text);
+    row.appendChild(removeBtn);
+    blockTaskList.appendChild(row);
+  });
+}
+
 function openNoteModal(slot) {
   const id = slot.dataset.slotId;
   if (!id) return;
@@ -387,10 +705,12 @@ function openNoteModal(slot) {
   const existing = scheduleNotes[id] || {};
   noteTitle.value = existing.title || "";
   noteText.value = existing.text || "";
+  blockTaskInput.value = "";
+  renderBlockTaskEditor(id);
   noteModal.classList.add("show");
   noteModal.setAttribute("aria-hidden", "false");
   noteModal.querySelector("h2").textContent = label;
-  noteText.focus();
+  blockTaskInput.focus();
 }
 
 function closeNoteModalView() {
@@ -399,6 +719,24 @@ function closeNoteModalView() {
   noteSlotId.value = "";
   noteText.value = "";
   noteTitle.value = "";
+  blockTaskInput.value = "";
+  blockTaskList.innerHTML = "";
+}
+
+function openNoteViewModal(slotId) {
+  const noteData = scheduleNotes[slotId];
+  if (!noteData) return;
+  noteViewSlotId = slotId;
+  noteViewTitle.textContent = noteData.title || "Note";
+  noteViewBody.textContent = noteData.text || "";
+  noteViewModal.classList.add("show");
+  noteViewModal.setAttribute("aria-hidden", "false");
+}
+
+function closeNoteViewModal() {
+  noteViewModal.classList.remove("show");
+  noteViewModal.setAttribute("aria-hidden", "true");
+  noteViewSlotId = "";
 }
 
 
@@ -457,6 +795,9 @@ function renderTaskCard(task, index) {
   card.style.setProperty("--task-scale", 1);
   card.style.setProperty("--float-delay", `${(index * 0.2) % 2.4}s`);
   card.style.setProperty("--float-duration", `${5.5 + (index % 5) * 0.6}s`);
+  if (enteringTaskIds.has(task.id)) {
+    card.classList.add("task-enter");
+  }
 
   card.addEventListener("mousedown", (e) => {
     if (e.target.closest("button")) return;
@@ -468,6 +809,22 @@ function renderTaskCard(task, index) {
   });
 
   return card;
+}
+
+function animateTaskTransition(taskId, className, commit, duration = 420) {
+  if (pendingTaskAnimations.has(taskId)) return;
+  const card = orbitTasks.querySelector(`.task-pill[data-task-id="${taskId}"]`);
+  if (!card) {
+    commit();
+    return;
+  }
+  pendingTaskAnimations.add(taskId);
+  card.classList.add(className);
+  card.style.pointerEvents = "none";
+  setTimeout(() => {
+    pendingTaskAnimations.delete(taskId);
+    commit();
+  }, duration);
 }
 
 function resolveCollisions(nodes, bounds, avoidRect, center) {
@@ -753,6 +1110,8 @@ function render() {
   positionTasks(items);
   empty.style.display = items.length === 0 ? "block" : "none";
   updateStats();
+  updateTimeProgressShading();
+  renderNextUpPanel();
 }
 
 function addTask(data) {
@@ -766,10 +1125,16 @@ function addTask(data) {
     done: false,
     createdAt: now,
     completedAt: null,
+    updatedAt: now,
   };
+  delete deletedTaskIds[task.id];
   tasks.unshift(task);
+  enteringTaskIds.add(task.id);
   saveTasks();
+  saveDeletedTaskIds();
+  resetAutoPositions();
   render();
+  setTimeout(() => enteringTaskIds.delete(task.id), 1200);
 }
 
 function updateTask(id, data) {
@@ -782,6 +1147,7 @@ function updateTask(id, data) {
       notes: data.notes.trim(),
       timeframe: newTimeframe,
       category: data.category,
+      updatedAt: Date.now(),
     };
     if (t.timeframe !== newTimeframe) {
       updated.position = undefined;
@@ -796,26 +1162,55 @@ function updateTask(id, data) {
 }
 
 function toggleTask(id) {
-  tasks = tasks.map((t) => {
-    if (t.id !== id) return t;
-    const done = !t.done;
-    return { ...t, done, completedAt: done ? Date.now() : null };
-  });
+  const task = tasks.find((t) => t.id === id);
+  if (!task) return;
+  if (!task.done) {
+    animateTaskTransition(
+      id,
+      "task-melt",
+      () => {
+        tasks = tasks.map((t) => {
+          if (t.id !== id) return t;
+          return { ...t, done: true, completedAt: Date.now(), updatedAt: Date.now() };
+        });
+        saveTasks();
+        resetAutoPositions();
+        render();
+      },
+      520
+    );
+    return;
+  }
+  tasks = tasks.map((t) => (t.id === id ? { ...t, done: false, completedAt: null, updatedAt: Date.now() } : t));
   saveTasks();
   resetAutoPositions();
   render();
 }
 
 function removeTask(id) {
-  tasks = tasks.filter((t) => t.id !== id);
-  saveTasks();
-  resetAutoPositions();
-  render();
+  animateTaskTransition(
+    id,
+    "task-pop",
+    () => {
+      deletedTaskIds[id] = Date.now();
+      tasks = tasks.filter((t) => t.id !== id);
+      saveTasks();
+      saveDeletedTaskIds();
+      resetAutoPositions();
+      render();
+    },
+    360
+  );
 }
 
 function clearDone() {
+  const now = Date.now();
+  tasks.filter((t) => t.done).forEach((t) => {
+    deletedTaskIds[t.id] = now;
+  });
   tasks = tasks.filter((t) => !t.done);
   saveTasks();
+  saveDeletedTaskIds();
   resetAutoPositions();
   render();
 }
@@ -908,44 +1303,180 @@ function handleMouseUp() {
 
 function bindScheduleToggle() {
   document.querySelectorAll(".slot").forEach((slot) => {
-    let clickTimer = null;
-    slot.addEventListener("click", () => {
-      if (slot.classList.contains("editing")) return;
-      if (clickTimer) return;
-      clickTimer = setTimeout(() => {
-        slot.classList.toggle("completed");
-        clickTimer = null;
-      }, 220);
-    });
     slot.addEventListener("dblclick", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (clickTimer) {
-        clearTimeout(clickTimer);
-        clickTimer = null;
+      const id = slot.dataset.slotId;
+      const noteData = id ? scheduleNotes[id] : null;
+      const hasNote = Boolean(noteData && (noteData.title || noteData.text));
+      if (hasNote) {
+        openNoteViewModal(id);
+        return;
       }
       openNoteModal(slot);
     });
   });
 }
 
+function normalizeNoteTimestamp(note) {
+  if (!note) return 0;
+  return Number(note.updatedAt || note.createdAt || 0);
+}
+
+function mergeStickyNotes(localNotes, cloudNotes) {
+  const merged = new Map();
+  const ingest = (note) => {
+    if (!note || !note.id) return;
+    const existing = merged.get(note.id);
+    if (!existing) {
+      merged.set(note.id, note);
+      return;
+    }
+    const existingTs = normalizeNoteTimestamp(existing);
+    const incomingTs = normalizeNoteTimestamp(note);
+    if (incomingTs >= existingTs) {
+      merged.set(note.id, note);
+    }
+  };
+  localNotes.forEach(ingest);
+  cloudNotes.forEach(ingest);
+  return Array.from(merged.values()).sort(
+    (a, b) => normalizeNoteTimestamp(b) - normalizeNoteTimestamp(a)
+  );
+}
+
+function renderScheduleCompletion() {
+  document.querySelectorAll(".slot").forEach((slot) => {
+    slot.classList.remove("completed");
+  });
+}
+
 function renderDayDates() {
+  const weekDates = getWeekDates();
+  const map = {
+    monday: weekDates.monday,
+    tuesday: weekDates.tuesday,
+    wednesday: weekDates.wednesday,
+    thursday: weekDates.thursday,
+    friday: weekDates.friday,
+  };
   document.querySelectorAll("[data-day-date]").forEach((el) => {
     const key = el.dataset.dayDate;
-    const value = dayDates[key];
-    if (!value) {
+    const date = map[key];
+    if (!date) {
       el.textContent = "";
       return;
     }
-    const [year, month, dayNumRaw] = value.split("-").map(Number);
-    if (!year || !month || !dayNumRaw) {
-      el.textContent = "";
+    el.textContent = formatShortDate(date);
+  });
+}
+
+function renderBlockMeta() {
+  document.querySelectorAll(".slot").forEach((slot) => {
+    const slotId = slot.dataset.slotId;
+    if (!slotId) return;
+
+    const summary = getBlockTaskSummary(slotId);
+    const existingMeta = slot.querySelector(".slot-meta");
+    if (summary.total <= 0) {
+      if (existingMeta) existingMeta.remove();
       return;
     }
-    const date = new Date(year, month - 1, dayNumRaw);
-    const day = date.toLocaleDateString(undefined, { weekday: "short" });
-    const dayNum = date.getDate();
-    el.textContent = `${day} ${dayNum}`;
+    const label = summary.total === 1 ? "1 to-do" : `${summary.total} to-dos`;
+    let meta = existingMeta;
+    if (!meta) {
+      meta = document.createElement("div");
+      meta.className = "slot-meta";
+      slot.appendChild(meta);
+    }
+    meta.textContent = label;
+  });
+}
+
+function updateTimeProgressShading() {
+  const now = new Date();
+  const today = now.getDay();
+  const minutes = minuteFromScheduleStart(now);
+  const currentClock = now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (liveClock) liveClock.textContent = currentClock;
+
+  document.querySelectorAll(".slot").forEach((slot) => {
+    const { start, end, dayIndex, slotId } = getSlotMeta(slot);
+    slot.classList.remove("time-past", "time-active", "time-future", "block-urgent");
+    slot.style.removeProperty("--progress");
+    if (!dayIndex) return;
+
+    if (today > dayIndex) {
+      slot.classList.add("time-past");
+      return;
+    }
+    if (today < dayIndex) {
+      slot.classList.add("time-future");
+      return;
+    }
+    if (minutes >= end) {
+      slot.classList.add("time-past");
+      return;
+    }
+    if (minutes < start) {
+      slot.classList.add("time-future");
+      return;
+    }
+    slot.classList.add("time-active");
+    const span = Math.max(1, end - start);
+    const progress = Math.max(0, Math.min(1, (minutes - start) / span));
+    slot.style.setProperty("--progress", String(progress));
+
+    const minutesLeft = end - minutes;
+    const pending = getBlockTaskSummary(slotId).pending;
+    if (minutesLeft <= 10 && pending > 0) {
+      slot.classList.add("block-urgent");
+    }
+  });
+}
+
+function getUpcomingBlocks() {
+  const now = new Date();
+  const today = now.getDay();
+  const currentMinutes = minuteFromScheduleStart(now);
+  const slots = [];
+  document.querySelectorAll(".slot").forEach((slot) => {
+    const slotId = slot.dataset.slotId;
+    const { start, end, dayIndex } = getSlotMeta(slot);
+    if (!slotId || !dayIndex) return;
+    if (dayIndex < today) return;
+    if (dayIndex === today && end <= currentMinutes) return;
+    const label = slot.dataset.slotLabel || slotId;
+    slots.push({ slotId, start, end, dayIndex, label });
+  });
+  slots.sort((a, b) => (a.dayIndex - b.dayIndex) || (a.start - b.start));
+  return slots.slice(0, 2);
+}
+
+function renderNextUpPanel() {
+  if (!nextUpList) return;
+  const upcoming = getUpcomingBlocks();
+  nextUpList.innerHTML = "";
+  if (!upcoming.length) {
+    nextUpList.textContent = "No upcoming blocks this week.";
+    return;
+  }
+  upcoming.forEach((block) => {
+    const item = document.createElement("div");
+    item.className = "next-item";
+    const heading = document.createElement("div");
+    heading.className = "next-item-title";
+    heading.textContent = block.label;
+    const summary = getBlockTaskSummary(block.slotId);
+    item.appendChild(heading);
+    if (summary.total > 0) {
+      const meta = document.createElement("div");
+      meta.className = "next-item-meta";
+      meta.textContent = summary.total === 1 ? "1 to-do" : `${summary.total} to-dos`;
+      item.appendChild(meta);
+    }
+
+    nextUpList.appendChild(item);
   });
 }
 
@@ -972,8 +1503,86 @@ function renderScheduleNotes() {
   });
 }
 
+function getWeekendKey(dayName, hour) {
+  const sunday = getWeekStartSunday();
+  const weekKey = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, "0")}-${String(sunday.getDate()).padStart(2, "0")}`;
+  return `${weekKey}:${dayName}:${hour}`;
+}
+
+function formatHourLabel(hour24) {
+  const suffix = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = ((hour24 + 11) % 12) + 1;
+  return `${hour12}:00 ${suffix}`;
+}
+
+function renderWeekendPlanner(dayName) {
+  weekendPlanner.dataset.day = dayName;
+  weekendTitle.textContent = `${dayName} Planner`;
+  const weekDates = getWeekDates();
+  weekendDate.textContent = formatShortDate(dayName === "Sunday" ? weekDates.sunday : weekDates.saturday);
+  weekendHours.innerHTML = "";
+
+  for (let hour = 4; hour <= 22; hour += 1) {
+    const row = document.createElement("label");
+    row.className = "weekend-row";
+    const hourText = document.createElement("span");
+    hourText.textContent = formatHourLabel(hour);
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = "Plan / to-do";
+    const key = getWeekendKey(dayName, hour);
+    input.value = weekendPlannerNotes[key] || "";
+    input.addEventListener("input", () => {
+      weekendPlannerNotes[key] = input.value;
+      saveWeekendPlannerNotes();
+    });
+    row.appendChild(hourText);
+    row.appendChild(input);
+    weekendHours.appendChild(row);
+  }
+}
+
+function positionWeekendPanel(dayName) {
+  const scheduleEl = document.getElementById("schedule");
+  const orbitRect = orbit.getBoundingClientRect();
+  const scheduleRect = scheduleEl.getBoundingClientRect();
+  const scheduleLeft = scheduleRect.left - orbitRect.left;
+  const scheduleRight = scheduleLeft + scheduleRect.width;
+  const sidePadding = 8;
+
+  weekendPlanner.style.width = "";
+  weekendPlanner.style.left = "";
+
+  if (dayName === "Saturday") {
+    const sideWidth = Math.max(0, orbitRect.width - scheduleRight - sidePadding);
+    weekendPlanner.style.left = `${scheduleRight}px`;
+    weekendPlanner.style.width = `${sideWidth}px`;
+  } else {
+    const sideWidth = Math.max(0, scheduleLeft - sidePadding);
+    weekendPlanner.style.left = `${Math.max(0, scheduleLeft - sideWidth)}px`;
+    weekendPlanner.style.width = `${sideWidth}px`;
+  }
+}
+
+function showWeekendPlanner(dayName) {
+  renderWeekendPlanner(dayName);
+  positionWeekendPanel(dayName);
+  weekendPlanner.classList.remove("from-left", "from-right");
+  weekendPlanner.classList.add(dayName === "Sunday" ? "from-left" : "from-right", "show");
+  weekendPlanner.dataset.day = dayName;
+  weekendPlanner.setAttribute("aria-hidden", "false");
+}
+
+function hideWeekendPlanner() {
+  weekendPlanner.classList.remove("show");
+  weekendPlanner.setAttribute("aria-hidden", "true");
+}
+
 function layoutOnResize() {
   window.requestAnimationFrame(render);
+  if (weekendPlanner.classList.contains("show") && weekendPlanner.dataset.day) {
+    positionWeekendPanel(weekendPlanner.dataset.day);
+  }
 }
 
 function renderCompletedList() {
@@ -1028,6 +1637,7 @@ function renderStickyNotes() {
       stickyNotes = stickyNotes.filter((n) => n.id !== note.id);
       saveStickyNotes();
       renderStickyNotes();
+      if (cloudReady) saveCloudNow();
     });
 
     actions.appendChild(editBtn);
@@ -1087,6 +1697,7 @@ function reorderStickyNotes(dragId, targetId) {
   stickyNotes = updated;
   saveStickyNotes();
   renderStickyNotes();
+  if (cloudReady) saveCloudNow();
 }
 
 stickyGrid.addEventListener("dragover", (e) => {
@@ -1130,11 +1741,12 @@ stickyForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(stickyForm).entries());
   if (!data.title || !data.title.trim()) return;
+  const now = Date.now();
   const id = stickyIdField.value;
   if (id) {
     stickyNotes = stickyNotes.map((n) =>
       n.id === id
-        ? { ...n, title: data.title.trim(), body: data.body.trim() }
+        ? { ...n, title: data.title.trim(), body: data.body.trim(), updatedAt: now }
         : n
     );
   } else {
@@ -1142,12 +1754,14 @@ stickyForm.addEventListener("submit", (e) => {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       title: data.title.trim(),
       body: data.body ? data.body.trim() : "",
-      createdAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
     });
   }
   saveStickyNotes();
   renderStickyNotes();
   closeStickyModal();
+  if (cloudReady) saveCloudNow();
 });
 
 openCloud.addEventListener("click", openCloudModal);
@@ -1169,6 +1783,7 @@ cloudForm.addEventListener("submit", async (e) => {
     return;
   }
   cloudFeedback.textContent = "Signed in.";
+  updateCloudStatus("Cloud Sync: Connected");
   closeCloudModal();
 });
 cloudSignup.addEventListener("click", async () => {
@@ -1189,6 +1804,30 @@ cloudSignout.addEventListener("click", async () => {
   if (!supabaseClient) return;
   await supabaseClient.auth.signOut();
   cloudFeedback.textContent = "Signed out.";
+});
+syncOpenCloud.addEventListener("click", openCloudModal);
+syncClose.addEventListener("click", () => {
+  syncAlertDismissedAt = Date.now();
+  syncAlert.hidden = true;
+});
+
+closeNoteView.addEventListener("click", closeNoteViewModal);
+noteViewModal.addEventListener("click", (e) => {
+  if (e.target === noteViewModal) closeNoteViewModal();
+});
+noteViewDelete.addEventListener("click", () => {
+  if (!noteViewSlotId) return;
+  delete scheduleNotes[noteViewSlotId];
+  saveScheduleNotes();
+  renderScheduleNotes();
+  closeNoteViewModal();
+});
+noteViewEdit.addEventListener("click", () => {
+  if (!noteViewSlotId) return;
+  const slot = document.querySelector(`.slot[data-slot-id="${noteViewSlotId}"]`);
+  if (!slot) return;
+  closeNoteViewModal();
+  openNoteModal(slot);
 });
 
 form.addEventListener("submit", (e) => {
@@ -1221,6 +1860,15 @@ modal.addEventListener("click", (e) => {
 window.addEventListener("resize", layoutOnResize);
 window.addEventListener("mousemove", handleMouseMove);
 window.addEventListener("mouseup", handleMouseUp);
+window.addEventListener("beforeunload", () => {
+  if (cloudReady) {
+    saveCloudNow();
+  }
+});
+window.addEventListener("focus", () => {
+  enforceSyncAlertState();
+  if (cloudReady) hydrateFromCloud();
+});
 toggleTasks.addEventListener("click", () => {
   document.body.classList.toggle("tasks-hidden");
   toggleTasks.textContent = document.body.classList.contains("tasks-hidden")
@@ -1233,48 +1881,37 @@ openCompleted.addEventListener("click", () => {
   completedModal.classList.add("show");
   completedModal.setAttribute("aria-hidden", "false");
 });
-document.querySelectorAll("[data-day-btn]").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const key = btn.dataset.dayBtn;
-    dateDayKey.value = key;
-    dateInput.value = dayDates[key] || "";
-    dateModal.classList.add("show");
-    dateModal.setAttribute("aria-hidden", "false");
-  });
-});
 
-closeDateModal.addEventListener("click", () => {
-  dateModal.classList.remove("show");
-  dateModal.setAttribute("aria-hidden", "true");
-});
-
-dateModal.addEventListener("click", (e) => {
-  if (e.target === dateModal) {
+if (closeDateModal) {
+  closeDateModal.addEventListener("click", () => {
     dateModal.classList.remove("show");
     dateModal.setAttribute("aria-hidden", "true");
-  }
-});
+  });
+}
 
-clearDateBtn.addEventListener("click", () => {
-  const key = dateDayKey.value;
-  if (!key) return;
-  delete dayDates[key];
-  saveDayDates();
-  renderDayDates();
-  dateModal.classList.remove("show");
-  dateModal.setAttribute("aria-hidden", "true");
-});
+if (dateModal) {
+  dateModal.addEventListener("click", (e) => {
+    if (e.target === dateModal) {
+      dateModal.classList.remove("show");
+      dateModal.setAttribute("aria-hidden", "true");
+    }
+  });
+}
 
-dateForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const key = dateDayKey.value;
-  if (!key) return;
-  dayDates[key] = dateInput.value;
-  saveDayDates();
-  renderDayDates();
-  dateModal.classList.remove("show");
-  dateModal.setAttribute("aria-hidden", "true");
-});
+if (clearDateBtn) {
+  clearDateBtn.addEventListener("click", () => {
+    dateModal.classList.remove("show");
+    dateModal.setAttribute("aria-hidden", "true");
+  });
+}
+
+if (dateForm) {
+  dateForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    dateModal.classList.remove("show");
+    dateModal.setAttribute("aria-hidden", "true");
+  });
+}
 
 closeCompleted.addEventListener("click", () => {
   completedModal.classList.remove("show");
@@ -1288,7 +1925,10 @@ completedModal.addEventListener("click", (e) => {
 });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeModalView();
+  if (e.key === "Escape") {
+    closeModalView();
+    closeNoteViewModal();
+  }
 });
 
 closeNoteModal.addEventListener("click", closeNoteModalView);
@@ -1309,11 +1949,55 @@ noteForm.addEventListener("submit", (e) => {
   }
   saveScheduleNotes();
   renderScheduleNotes();
+  renderBlockMeta();
+  renderNextUpPanel();
   closeNoteModalView();
 });
 
+addBlockTask.addEventListener("click", () => {
+  const slotId = noteSlotId.value;
+  const text = blockTaskInput.value.trim();
+  if (!slotId || !text) return;
+  const list = scheduleBlockTasks[slotId] || [];
+  list.push({
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    text,
+    done: false,
+  });
+  scheduleBlockTasks[slotId] = list;
+  blockTaskInput.value = "";
+  saveScheduleBlockTasks();
+  renderBlockTaskEditor(slotId);
+  renderBlockMeta();
+  renderNextUpPanel();
+});
+
+blockTaskInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    addBlockTask.click();
+  }
+});
+
+openSundayBtn.addEventListener("click", () => showWeekendPlanner("Sunday"));
+openSaturdayBtn.addEventListener("click", () => showWeekendPlanner("Saturday"));
+hideWeekendBtn.addEventListener("click", hideWeekendPlanner);
+
 bindScheduleToggle();
+recoverMissingTasksFromBackup();
+renderDayDates();
+renderScheduleCompletion();
+renderBlockMeta();
 renderScheduleNotes();
+renderNextUpPanel();
+updateTimeProgressShading();
 render();
 renderStickyNotes();
 initSupabase();
+
+setInterval(() => {
+  renderDayDates();
+  updateTimeProgressShading();
+  renderNextUpPanel();
+  enforceSyncAlertState();
+}, 60000);

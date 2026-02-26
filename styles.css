@@ -435,11 +435,34 @@ h1 {
   opacity: 0.75;
 }
 
-.slot-note {
+.slot-note-badge {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.92);
+  color: #8a2d0a;
+  border: 1px solid rgba(251, 146, 60, 0.55);
+}
+
+.slot-note-preview {
+  position: relative;
+  z-index: 1;
   margin-top: 2px;
   font-size: 10px;
+  font-weight: 700;
   color: #0f172a;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .slot-meta {
@@ -469,15 +492,25 @@ h1 {
 }
 
 .slot.has-note::before {
-  content: "";
+  content: " ";
   position: absolute;
-  top: 0;
-  right: 0;
-  border-top: 12px solid #ef4444;
-  border-left: 12px solid transparent;
-  width: 0;
-  height: 0;
-  border-top-right-radius: 10px;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 10px;
+  box-shadow:
+    inset 0 0 0 2px rgba(249, 115, 22, 0.72),
+    0 0 0 1px rgba(255, 237, 213, 0.9);
+}
+
+.slot.has-note {
+  box-shadow: 0 6px 16px rgba(249, 115, 22, 0.2);
+  transform: translateY(-1px);
+}
+
+.slot.block-urgent.has-note {
+  box-shadow:
+    inset 0 0 0 2px rgba(220, 38, 38, 0.45),
+    0 6px 16px rgba(249, 115, 22, 0.2);
 }
 
 .note-card {

@@ -43,6 +43,7 @@ const SCHEDULE_NOTES_KEY = "task-organizer:schedule-notes";
 const SCHEDULE_COMPLETED_KEY = "task-organizer:schedule-completed";
 const DELETED_TASKS_KEY = "task-organizer:deleted-tasks";
 const LOCAL_BACKUP_KEY = "task-organizer:local-backup";
+const STATE_UPDATED_AT_KEY = "task-organizer:state-updated-at";
 const AUTH_PASSWORD = " ";
 const AUTH_KEY = "task-organizer:auth";
 const STICKY_KEY = "task-organizer:sticky-notes";
@@ -122,10 +123,12 @@ let cloudSaveTimer = null;
 let cloudUserId = null;
 let scheduleBlockTasks = loadScheduleBlockTasks();
 let weekendPlannerNotes = loadWeekendPlannerNotes();
+let stateUpdatedAt = loadStateUpdatedAt();
 const enteringTaskIds = new Set();
 const pendingTaskAnimations = new Set();
 let syncAlertDismissedAt = 0;
 let noteViewSlotId = "";
+let noteAutosaveTimer = null;
 
 function enforceSyncAlertState() {
   const connected = /Connected/i.test(cloudStatus.textContent || "");
@@ -154,6 +157,7 @@ function loadTasks() {
 
 function saveTasks() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  markLocalStateUpdated();
   scheduleCloudSave();
 }
 
@@ -186,16 +190,19 @@ function loadDayDates() {
 
 function saveDayDates() {
   localStorage.setItem(DATE_LABELS_KEY, JSON.stringify(dayDates));
+  markLocalStateUpdated();
   scheduleCloudSave();
 }
 
 function saveScheduleNotes() {
   localStorage.setItem(SCHEDULE_NOTES_KEY, JSON.stringify(scheduleNotes));
+  markLocalStateUpdated();
   scheduleCloudSave();
 }
 
 function saveScheduleCompleted() {
   localStorage.setItem(SCHEDULE_COMPLETED_KEY, JSON.stringify(scheduleCompleted));
+  markLocalStateUpdated();
   scheduleCloudSave();
 }
 
@@ -210,6 +217,7 @@ function loadDeletedTaskIds() {
 
 function saveDeletedTaskIds() {
   localStorage.setItem(DELETED_TASKS_KEY, JSON.stringify(deletedTaskIds));
+  markLocalStateUpdated();
   scheduleCloudSave();
 }
 
@@ -224,6 +232,7 @@ function loadScheduleBlockTasks() {
 
 function saveScheduleBlockTasks() {
   localStorage.setItem(SCHEDULE_BLOCK_TASKS_KEY, JSON.stringify(scheduleBlockTasks));
+  markLocalStateUpdated();
   scheduleCloudSave();
 }
 
@@ -238,6 +247,7 @@ function loadWeekendPlannerNotes() {
 
 function saveWeekendPlannerNotes() {
   localStorage.setItem(WEEKEND_PLANNER_KEY, JSON.stringify(weekendPlannerNotes));
+  markLocalStateUpdated();
   scheduleCloudSave();
 }
 
@@ -261,7 +271,25 @@ function loadStickyNotes() {
 
 function saveStickyNotes() {
   localStorage.setItem(STICKY_KEY, JSON.stringify(stickyNotes));
+  markLocalStateUpdated();
   scheduleCloudSave();
+}
+
+function loadStateUpdatedAt() {
+  try {
+    const raw = localStorage.getItem(STATE_UPDATED_AT_KEY);
+    const parsed = Number(raw || 0);
+    return Number.isFinite(parsed) ? parsed : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function markLocalStateUpdated(ts = Date.now()) {
+  const next = Number(ts || 0);
+  if (!Number.isFinite(next) || next <= 0) return;
+  stateUpdatedAt = Math.max(stateUpdatedAt, next);
+  localStorage.setItem(STATE_UPDATED_AT_KEY, String(stateUpdatedAt));
 }
 
 function backupLocalState(reason = "manual") {
@@ -376,6 +404,8 @@ async function initSupabase() {
 }
 
 function buildCloudPayload() {
+  const now = Date.now();
+  markLocalStateUpdated(now);
   return {
     tasks,
     dayDates,
@@ -385,8 +415,21 @@ function buildCloudPayload() {
     scheduleBlockTasks,
     weekendPlannerNotes,
     stickyNotes,
-    updatedAt: Date.now(),
+    updatedAt: now,
   };
+}
+
+function hasAnyLocalState() {
+  return Boolean(
+    tasks.length ||
+      stickyNotes.length ||
+      Object.keys(dayDates).length ||
+      Object.keys(scheduleNotes).length ||
+      Object.keys(scheduleCompleted).length ||
+      Object.keys(deletedTaskIds).length ||
+      Object.keys(scheduleBlockTasks).length ||
+      Object.keys(weekendPlannerNotes).length
+  );
 }
 
 function taskTimestamp(task) {
@@ -450,6 +493,13 @@ function recoverMissingTasksFromBackup() {
 
 function applyCloudPayload(payload) {
   if (!payload) return;
+  const cloudUpdatedAt = Number(payload.updatedAt || 0);
+  const localHasData = hasAnyLocalState();
+  const cloudIsStale =
+    (cloudUpdatedAt > 0 && cloudUpdatedAt < stateUpdatedAt) ||
+    (cloudUpdatedAt <= 0 && stateUpdatedAt > 0 && localHasData);
+  if (cloudIsStale) return;
+
   backupLocalState("before-cloud-apply");
   isApplyingCloudState = true;
   const localTasks = Array.isArray(tasks) ? tasks : [];
@@ -472,6 +522,7 @@ function applyCloudPayload(payload) {
   saveScheduleBlockTasks();
   saveWeekendPlannerNotes();
   saveStickyNotes();
+  markLocalStateUpdated(cloudUpdatedAt || Date.now());
   isApplyingCloudState = false;
   renderDayDates();
   renderScheduleCompletion();
@@ -720,7 +771,30 @@ function openNoteModal(slot) {
   blockTaskInput.focus();
 }
 
+function persistActiveNoteDraft() {
+  const id = noteSlotId.value;
+  if (!id) return;
+  const title = noteTitle.value.trim();
+  const text = noteText.value.trim();
+  if (title || text) {
+    scheduleNotes[id] = { title, text, updatedAt: Date.now() };
+  } else {
+    delete scheduleNotes[id];
+  }
+  saveScheduleNotes();
+  renderScheduleNotes();
+  renderBlockMeta();
+  renderNextUpPanel();
+}
+
 function closeNoteModalView() {
+  if (noteSlotId.value) {
+    persistActiveNoteDraft();
+  }
+  if (noteAutosaveTimer) {
+    clearTimeout(noteAutosaveTimer);
+    noteAutosaveTimer = null;
+  }
   noteModal.classList.remove("show");
   noteModal.setAttribute("aria-hidden", "true");
   noteSlotId.value = "";
@@ -1491,19 +1565,30 @@ function renderScheduleNotes() {
   document.querySelectorAll(".slot").forEach((slot) => {
     const id = slot.dataset.slotId;
     if (!id) return;
-    let note = slot.querySelector(".slot-note");
+    let noteBadge = slot.querySelector(".slot-note-badge");
+    let notePreview = slot.querySelector(".slot-note-preview");
     const noteData = scheduleNotes[id];
     if (noteData && (noteData.title || noteData.text)) {
-      if (!note) {
-        note = document.createElement("div");
-        note.className = "slot-note";
-        slot.appendChild(note);
+      const title = (noteData.title || "").trim();
+      const preview = title || "Note saved";
+      const shortPreview = preview.length > 28 ? `${preview.slice(0, 28)}...` : preview;
+      if (!noteBadge) {
+        noteBadge = document.createElement("div");
+        noteBadge.className = "slot-note-badge";
+        slot.appendChild(noteBadge);
       }
-      note.textContent = noteData.title || "Note";
+      if (!notePreview) {
+        notePreview = document.createElement("div");
+        notePreview.className = "slot-note-preview";
+        slot.appendChild(notePreview);
+      }
+      noteBadge.textContent = "NOTE";
+      notePreview.textContent = shortPreview;
       slot.title = noteData.text || noteData.title || "";
       slot.classList.add("has-note");
-    } else if (note) {
-      note.remove();
+    } else {
+      if (noteBadge) noteBadge.remove();
+      if (notePreview) notePreview.remove();
       slot.classList.remove("has-note");
       slot.removeAttribute("title");
     }
@@ -1945,20 +2030,17 @@ noteModal.addEventListener("click", (e) => {
 });
 noteForm.addEventListener("submit", (e) => {
   e.preventDefault();
-  const id = noteSlotId.value;
-  if (!id) return;
-  const title = noteTitle.value.trim();
-  const text = noteText.value.trim();
-  if (title || text) {
-    scheduleNotes[id] = { title, text };
-  } else {
-    delete scheduleNotes[id];
-  }
-  saveScheduleNotes();
-  renderScheduleNotes();
-  renderBlockMeta();
-  renderNextUpPanel();
+  persistActiveNoteDraft();
   closeNoteModalView();
+});
+
+[noteTitle, noteText].forEach((field) => {
+  field.addEventListener("input", () => {
+    if (noteAutosaveTimer) clearTimeout(noteAutosaveTimer);
+    noteAutosaveTimer = setTimeout(() => {
+      persistActiveNoteDraft();
+    }, 250);
+  });
 });
 
 addBlockTask.addEventListener("click", () => {

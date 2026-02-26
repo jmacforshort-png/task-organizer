@@ -97,6 +97,11 @@ const weekendHours = document.getElementById("weekend-hours");
 const hideWeekendBtn = document.getElementById("hide-weekend");
 
 const TIMEFRAMES = ["Today", "Tomorrow", "End of the week", "Next month", "Way out"];
+const TASK_CARD_W = 190;
+const TASK_CARD_H = 110;
+const TASK_MIN_GAP = 22;
+const TASK_LAYOUT_PADDING = 10;
+const TASK_MIN_CENTER_DIST = Math.max(TASK_CARD_W, TASK_CARD_H) + TASK_MIN_GAP;
 const SCHEDULE_BLOCK_TASKS_KEY = "task-organizer:schedule-block-tasks";
 const WEEKEND_PLANNER_KEY = "task-organizer:weekend-planner";
 const SLOT_DAY_INDEX = {
@@ -908,54 +913,169 @@ function animateTaskTransition(taskId, className, commit, duration = 420) {
   }, duration);
 }
 
-function resolveCollisions(nodes, bounds, avoidRect, center) {
-  const padding = 38;
-  const iterations = 48;
+function clampValue(value, min, max) {
+  if (max < min) return (min + max) / 2;
+  return Math.min(max, Math.max(min, value));
+}
 
+function clampNodeToBounds(node, bounds, padding = TASK_LAYOUT_PADDING) {
+  node.x = clampValue(node.x, bounds.left + node.w / 2 + padding, bounds.right - node.w / 2 - padding);
+  node.y = clampValue(node.y, bounds.top + node.h / 2 + padding, bounds.bottom - node.h / 2 - padding);
+}
+
+function clampNodeToRegion(node, region, padding = TASK_LAYOUT_PADDING) {
+  if (!region) return;
+  node.x = clampValue(node.x, region.x1 + node.w / 2 + padding, region.x2 - node.w / 2 - padding);
+  node.y = clampValue(node.y, region.y1 + node.h / 2 + padding, region.y2 - node.h / 2 - padding);
+}
+
+function nodeOverlapsRect(node, rect) {
+  const left = node.x - node.w / 2;
+  const right = node.x + node.w / 2;
+  const top = node.y - node.h / 2;
+  const bottom = node.y + node.h / 2;
+  return right > rect.left && left < rect.right && bottom > rect.top && top < rect.bottom;
+}
+
+function pushNodeOutOfRect(node, rect, padding = 0, center = null) {
+  if (!nodeOverlapsRect(node, rect)) return;
+  const moves = [
+    {
+      x: (rect.left - padding) - (node.x + node.w / 2),
+      y: 0,
+      d: Math.abs((rect.left - padding) - (node.x + node.w / 2)),
+    },
+    {
+      x: (rect.right + padding) - (node.x - node.w / 2),
+      y: 0,
+      d: Math.abs((rect.right + padding) - (node.x - node.w / 2)),
+    },
+    {
+      x: 0,
+      y: (rect.top - padding) - (node.y + node.h / 2),
+      d: Math.abs((rect.top - padding) - (node.y + node.h / 2)),
+    },
+    {
+      x: 0,
+      y: (rect.bottom + padding) - (node.y - node.h / 2),
+      d: Math.abs((rect.bottom + padding) - (node.y - node.h / 2)),
+    },
+  ];
+
+  if (center) {
+    const cx = node.x - center.x;
+    const cy = node.y - center.y;
+    const preferred = Math.abs(cx) >= Math.abs(cy)
+      ? (cx < 0 ? 0 : 1)
+      : (cy < 0 ? 2 : 3);
+    moves[preferred].d *= 0.86;
+  }
+
+  moves.sort((a, b) => a.d - b.d);
+  node.x += moves[0].x;
+  node.y += moves[0].y;
+}
+
+function buildRegionCandidates(region, anchor, stepX, stepY) {
+  const minX = region.x1 + TASK_CARD_W / 2 + TASK_LAYOUT_PADDING;
+  const maxX = region.x2 - TASK_CARD_W / 2 - TASK_LAYOUT_PADDING;
+  const minY = region.y1 + TASK_CARD_H / 2 + TASK_LAYOUT_PADDING;
+  const maxY = region.y2 - TASK_CARD_H / 2 - TASK_LAYOUT_PADDING;
+  if (maxX < minX || maxY < minY) return [];
+
+  const cols = Math.max(1, Math.floor((maxX - minX) / stepX) + 1);
+  const rows = Math.max(1, Math.floor((maxY - minY) / stepY) + 1);
+  const totalW = (cols - 1) * stepX;
+  const totalH = (rows - 1) * stepY;
+  const startX = minX + Math.max(0, (maxX - minX - totalW) / 2);
+  const startY = minY + Math.max(0, (maxY - minY - totalH) / 2);
+
+  const points = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      points.push({ x: startX + c * stepX, y: startY + r * stepY });
+    }
+  }
+
+  points.sort((a, b) => {
+    const da = Math.hypot(a.x - anchor.x, a.y - anchor.y);
+    const db = Math.hypot(b.x - anchor.x, b.y - anchor.y);
+    if (da !== db) return da - db;
+    if (a.y !== b.y) return a.y - b.y;
+    return a.x - b.x;
+  });
+
+  return points;
+}
+
+function seedNodesInRegion(nodes, region, anchor) {
+  if (!nodes.length) return;
+  const stepX = TASK_CARD_W + TASK_MIN_GAP;
+  const stepY = TASK_CARD_H + TASK_MIN_GAP;
+  const candidates = buildRegionCandidates(region, anchor, stepX, stepY);
+  const clampedAnchor = {
+    x: clampValue(anchor.x, region.x1 + TASK_CARD_W / 2, region.x2 - TASK_CARD_W / 2),
+    y: clampValue(anchor.y, region.y1 + TASK_CARD_H / 2, region.y2 - TASK_CARD_H / 2),
+  };
+
+  nodes.forEach((node, index) => {
+    const candidate = candidates[index];
+    if (candidate) {
+      node.x = candidate.x;
+      node.y = candidate.y;
+    } else {
+      const overflow = index - candidates.length;
+      const col = overflow % 3;
+      const row = Math.floor(overflow / 3);
+      node.x = clampedAnchor.x + (col - 1) * (stepX * 0.35);
+      node.y = clampedAnchor.y + (row + 1) * (stepY * 0.35);
+    }
+    node.w = TASK_CARD_W;
+    node.h = TASK_CARD_H;
+    clampNodeToRegion(node, region, 0);
+  });
+}
+
+function resolveCollisions(nodes, bounds, avoidRect, center, minDist = TASK_MIN_CENTER_DIST) {
+  const iterations = 84;
   for (let iter = 0; iter < iterations; iter++) {
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const a = nodes[i];
         const b = nodes[j];
+        if (a.fixed && b.fixed) continue;
         const dx = b.x - a.x;
         const dy = b.y - a.y;
-        const dist = Math.hypot(dx, dy) || 1;
-        const minDist = (Math.max(a.w, b.w) * 0.75) + 28;
-        if (dist < minDist) {
-          const push = (minDist - dist) * 0.5;
-          const ux = dx / dist;
-          const uy = dy / dist;
-          a.x -= ux * push;
-          a.y -= uy * push;
+        const dist = Math.hypot(dx, dy) || 0.0001;
+        if (dist >= minDist) continue;
+        const ux = dx / dist;
+        const uy = dy / dist;
+        const push = minDist - dist + 0.05;
+        if (a.fixed) {
           b.x += ux * push;
           b.y += uy * push;
+        } else if (b.fixed) {
+          a.x -= ux * push;
+          a.y -= uy * push;
+        } else {
+          const half = push * 0.5;
+          a.x -= ux * half;
+          a.y -= uy * half;
+          b.x += ux * half;
+          b.y += uy * half;
         }
       }
     }
 
-    for (const n of nodes) {
-      n.x = Math.min(bounds.right - n.w / 2 - padding, Math.max(bounds.left + n.w / 2 + padding, n.x));
-      n.y = Math.min(bounds.bottom - n.h / 2 - padding, Math.max(bounds.top + n.h / 2 + padding, n.y));
-
+    for (const node of nodes) {
+      if (node.fixed) continue;
+      if (node.region) clampNodeToRegion(node, node.region);
+      clampNodeToBounds(node, bounds);
       if (avoidRect) {
-        const left = n.x - n.w / 2;
-        const right = n.x + n.w / 2;
-        const top = n.y - n.h / 2;
-        const bottom = n.y + n.h / 2;
-        const overlaps =
-          right > avoidRect.left &&
-          left < avoidRect.right &&
-          bottom > avoidRect.top &&
-          top < avoidRect.bottom;
-        if (overlaps) {
-          const dx = n.x - center.x;
-          const dy = n.y - center.y;
-          const dist = Math.hypot(dx, dy) || 1;
-          const push = 40;
-          n.x += (dx / dist) * push;
-          n.y += (dy / dist) * push;
-        }
+        pushNodeOutOfRect(node, avoidRect, TASK_MIN_GAP * 0.35, center);
       }
+      if (node.region) clampNodeToRegion(node, node.region);
+      clampNodeToBounds(node, bounds);
     }
   }
 }
@@ -997,7 +1117,7 @@ function positionTasks(items) {
     bottom: scheduleBox.bottom + 12,
   };
 
-  const margin = 18;
+  const margin = 20;
   const centerY = scheduleBox.top + scheduleBox.height / 2;
 
   const leftRegion = {
@@ -1067,123 +1187,89 @@ function positionTasks(items) {
     const group = groups[timeframe] || [];
     if (!group.length) continue;
 
-    const sortedGroup = [...group].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    const sortedGroup = [...group].sort((a, b) => {
+      if ((a.createdAt || 0) !== (b.createdAt || 0)) return (a.createdAt || 0) - (b.createdAt || 0);
+      return String(a.id || "").localeCompare(String(b.id || ""));
+    });
     sortedGroup.forEach((task) => {
       const card = renderTaskCard(task, index);
       orbitTasks.appendChild(card);
       if (task.position && task.position.locked) {
-        locked.push({ card, x: task.position.x, y: task.position.y, w: 190, h: 110 });
+        locked.push({
+          card,
+          x: task.position.x,
+          y: task.position.y,
+          w: TASK_CARD_W,
+          h: TASK_CARD_H,
+          fixed: true,
+        });
       } else {
-        cards.push({ card, timeframe });
+        cards.push({
+          card,
+          timeframe,
+          w: TASK_CARD_W,
+          h: TASK_CARD_H,
+          fixed: false,
+          region: regions[timeframe],
+        });
       }
       card.style.setProperty("--float-offset", `${(index % 3) * 6 - 6}px`);
       index += 1;
     });
   }
 
-  const placeVerticalRegion = (nodes, region) => {
-    const cardW = 190;
-    const cardH = 110;
-    const gap = 14;
-    const width = Math.max(0, region.x2 - region.x1);
-    const height = Math.max(0, region.y2 - region.y1);
-    if (width < cardW || height < cardH) return;
-
-    const maxCols = Math.max(1, Math.floor((width + gap) / (cardW + gap)));
-    const maxRowsPerCol = Math.max(1, Math.floor((height + gap) / (cardH + gap)));
-    const cols = Math.min(maxCols, Math.max(1, Math.ceil(nodes.length / maxRowsPerCol)));
-
-    const colGap = cols === 1 ? 0 : (width - cols * cardW) / (cols - 1);
-    const safeColGap = Math.max(gap, colGap);
-    const gridW = cols * cardW + (cols - 1) * safeColGap;
-    const startX = region.x1 + (width - gridW) / 2 + cardW / 2;
-
-    for (let c = 0; c < cols; c++) {
-      const colNodes = nodes.filter((_, i) => i % cols == c);
-      if (!colNodes.length) continue;
-      const rows = colNodes.length;
-      const rowGap = rows == 1 ? 0 : (height - rows * cardH) / (rows - 1);
-      const safeRowGap = Math.max(gap, rowGap);
-      const gridH = rows * cardH + (rows - 1) * safeRowGap;
-      const startY = region.y1 + (height - gridH) / 2 + cardH / 2;
-      colNodes.forEach((node, r) => {
-        node.x = startX + c * (cardW + safeColGap);
-        node.y = startY + r * (cardH + safeRowGap);
-        node.w = cardW;
-        node.h = cardH;
-      });
-    }
-  };
-
-  const placeHorizontalRegion = (nodes, region) => {
-    const cardW = 190;
-    const cardH = 110;
-    const gap = 14;
-    const width = Math.max(0, region.x2 - region.x1);
-    const height = Math.max(0, region.y2 - region.y1);
-    if (width < cardW || height < cardH) return;
-
-    const maxRows = Math.max(1, Math.floor((height + gap) / (cardH + gap)));
-    const maxColsPerRow = Math.max(1, Math.floor((width + gap) / (cardW + gap)));
-    const rows = Math.min(maxRows, Math.max(1, Math.ceil(nodes.length / maxColsPerRow)));
-
-    const rowGap = rows === 1 ? 0 : (height - rows * cardH) / (rows - 1);
-    const safeRowGap = Math.max(gap, rowGap);
-    const gridH = rows * cardH + (rows - 1) * safeRowGap;
-    const startY = region.y1 + (height - gridH) / 2 + cardH / 2;
-
-    for (let r = 0; r < rows; r++) {
-      const rowNodes = nodes.filter((_, i) => i % rows == r);
-      if (!rowNodes.length) continue;
-      const cols = rowNodes.length;
-      const colGap = cols == 1 ? 0 : (width - cols * cardW) / (cols - 1);
-      const safeColGap = Math.max(gap, colGap);
-      const gridW = cols * cardW + (cols - 1) * safeColGap;
-      const startX = region.x1 + (width - gridW) / 2 + cardW / 2;
-      rowNodes.forEach((node, c) => {
-        node.x = startX + c * (cardW + safeColGap);
-        node.y = startY + r * (cardH + safeRowGap);
-        node.w = cardW;
-        node.h = cardH;
-      });
-    }
-  };
-
   requestAnimationFrame(() => {
-    const nodes = cards.map(({ card, timeframe }) => ({ card, timeframe, x: 0, y: 0, w: 0, h: 0 }));
-
-    locked.forEach((node) => {
-      const clampedX = Math.min(orbitBounds.right, Math.max(orbitBounds.left, node.x));
-      const clampedY = Math.min(orbitBounds.bottom, Math.max(orbitBounds.top, node.y));
-      node.card.style.left = `${clampedX}px`;
-      node.card.style.top = `${clampedY}px`;
-    });
-
-    orderedTimeframes.forEach((timeframe) => {
-      const region = regions[timeframe];
-      if (!region) return;
-      const regionNodes = nodes.filter((n) => n.timeframe === timeframe);
-      if (!regionNodes.length) return;
-      if (timeframe === "End of the week") {
-        placeHorizontalRegion(regionNodes, region);
-      } else {
-        placeVerticalRegion(regionNodes, region);
-      }
-    });
+    const nodes = cards.map((node) => ({
+      ...node,
+      x: 0,
+      y: 0,
+    }));
 
     const center = {
       x: scheduleBox.left + scheduleBox.width / 2,
       y: scheduleBox.top + scheduleBox.height / 2,
     };
 
-    resolveCollisions(nodes, orbitBounds, avoidRect, center);
+    const anchors = {
+      "Today": {
+        x: leftRegion.x1 + (leftRegion.x2 - leftRegion.x1) * 0.32,
+        y: leftRegion.y1 + (centerY - leftRegion.y1) * 0.24,
+      },
+      "Tomorrow": {
+        x: leftRegion.x1 + (leftRegion.x2 - leftRegion.x1) * 0.36,
+        y: centerY + (leftRegion.y2 - centerY) * 0.7,
+      },
+      "End of the week": {
+        x: (bottomRegion.x1 + bottomRegion.x2) / 2,
+        y: bottomRegion.y1 + (bottomRegion.y2 - bottomRegion.y1) * 0.6,
+      },
+      "Next month": {
+        x: rightRegion.x1 + (rightRegion.x2 - rightRegion.x1) * 0.64,
+        y: centerY + (rightRegion.y2 - centerY) * 0.7,
+      },
+      "Way out": {
+        x: rightRegion.x1 + (rightRegion.x2 - rightRegion.x1) * 0.68,
+        y: rightRegion.y1 + (centerY - rightRegion.y1) * 0.24,
+      },
+    };
 
-    for (const node of nodes) {
-      const clampedX = Math.min(orbitBounds.right, Math.max(orbitBounds.left, node.x));
-      const clampedY = Math.min(orbitBounds.bottom, Math.max(orbitBounds.top, node.y));
-      node.card.style.left = `${clampedX}px`;
-      node.card.style.top = `${clampedY}px`;
-    }
+    orderedTimeframes.forEach((timeframe) => {
+      const regionNodes = nodes.filter((n) => n.timeframe === timeframe);
+      if (!regionNodes.length) return;
+      seedNodesInRegion(regionNodes, regions[timeframe], anchors[timeframe]);
+    });
+
+    locked.forEach((node) => {
+      clampNodeToBounds(node, orbitBounds);
+    });
+
+    const allNodes = [...nodes, ...locked];
+    resolveCollisions(allNodes, orbitBounds, avoidRect, center, TASK_MIN_CENTER_DIST);
+
+    allNodes.forEach((node) => {
+      node.card.style.left = `${node.x}px`;
+      node.card.style.top = `${node.y}px`;
+    });
   });
 }
 function render() {

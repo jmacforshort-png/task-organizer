@@ -370,6 +370,12 @@ h1 {
 }
 
 .day-label {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 10px;
+  padding: 4px 2px;
+  width: 100%;
   text-align: center;
   font-size: 11px;
   font-weight: 800;
@@ -381,6 +387,24 @@ h1 {
   align-items: center;
   gap: 2px;
   line-height: 1.2;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+.day-label:hover {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: rgba(239, 246, 255, 0.82);
+}
+
+.day-label:focus-visible {
+  outline: none;
+  border-color: rgba(37, 99, 235, 0.62);
+  box-shadow: 0 0 0 2px rgba(191, 219, 254, 0.82);
+}
+
+.day-name {
+  font: inherit;
+  color: inherit;
 }
 
 .schedule-grid {

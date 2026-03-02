@@ -36,10 +36,15 @@ const closeDateModal = document.getElementById("close-date-modal");
 const dateForm = document.getElementById("date-form");
 const dateDayKey = document.getElementById("date-day-key");
 const dateInput = document.getElementById("day-date-input");
+const dayNameInput = document.getElementById("day-name-input");
+const dayDatePicker = document.getElementById("day-date-picker");
+const dateModalTitle = document.getElementById("date-modal-title");
 const clearDateBtn = document.getElementById("clear-date");
 const completedList = document.getElementById("completed-list");
 const DATE_LABELS_KEY = "task-organizer:day-dates";
+const DATE_LABELS_META_KEY = "task-organizer:day-dates-meta";
 const SCHEDULE_NOTES_KEY = "task-organizer:schedule-notes";
+const SCHEDULE_NOTES_META_KEY = "task-organizer:schedule-notes-meta";
 const SCHEDULE_COMPLETED_KEY = "task-organizer:schedule-completed";
 const DELETED_TASKS_KEY = "task-organizer:deleted-tasks";
 const LOCAL_BACKUP_KEY = "task-organizer:local-backup";
@@ -103,7 +108,9 @@ const TASK_MIN_GAP = 22;
 const TASK_LAYOUT_PADDING = 10;
 const TASK_MIN_CENTER_DIST = Math.max(TASK_CARD_W, TASK_CARD_H) + TASK_MIN_GAP;
 const SCHEDULE_BLOCK_TASKS_KEY = "task-organizer:schedule-block-tasks";
+const SCHEDULE_BLOCK_TASKS_META_KEY = "task-organizer:schedule-block-tasks-meta";
 const WEEKEND_PLANNER_KEY = "task-organizer:weekend-planner";
+const WEEKEND_PLANNER_META_KEY = "task-organizer:weekend-planner-meta";
 const SLOT_DAY_INDEX = {
   xday: 1,
   day1: 2,
@@ -120,6 +127,7 @@ let scheduleNotes = loadScheduleNotes();
 let scheduleCompleted = loadScheduleCompleted();
 let deletedTaskIds = loadDeletedTaskIds();
 let dayDates = loadDayDates();
+let dayDatesMeta = loadDayDatesMeta();
 let stickyNotes = loadStickyNotes();
 let supabaseClient = null;
 let cloudReady = false;
@@ -127,7 +135,10 @@ let isApplyingCloudState = false;
 let cloudSaveTimer = null;
 let cloudUserId = null;
 let scheduleBlockTasks = loadScheduleBlockTasks();
+let scheduleBlockTasksMeta = loadScheduleBlockTasksMeta();
 let weekendPlannerNotes = loadWeekendPlannerNotes();
+let weekendPlannerNotesMeta = loadWeekendPlannerNotesMeta();
+let scheduleNotesMeta = loadScheduleNotesMeta();
 let stateUpdatedAt = loadStateUpdatedAt();
 const enteringTaskIds = new Set();
 const pendingTaskAnimations = new Set();
@@ -175,6 +186,15 @@ function loadScheduleNotes() {
   }
 }
 
+function loadScheduleNotesMeta() {
+  try {
+    const raw = localStorage.getItem(SCHEDULE_NOTES_META_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 function loadScheduleCompleted() {
   try {
     const raw = localStorage.getItem(SCHEDULE_COMPLETED_KEY);
@@ -193,14 +213,25 @@ function loadDayDates() {
   }
 }
 
+function loadDayDatesMeta() {
+  try {
+    const raw = localStorage.getItem(DATE_LABELS_META_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 function saveDayDates() {
   localStorage.setItem(DATE_LABELS_KEY, JSON.stringify(dayDates));
+  localStorage.setItem(DATE_LABELS_META_KEY, JSON.stringify(dayDatesMeta));
   markLocalStateUpdated();
   scheduleCloudSave();
 }
 
 function saveScheduleNotes() {
   localStorage.setItem(SCHEDULE_NOTES_KEY, JSON.stringify(scheduleNotes));
+  localStorage.setItem(SCHEDULE_NOTES_META_KEY, JSON.stringify(scheduleNotesMeta));
   markLocalStateUpdated();
   scheduleCloudSave();
 }
@@ -235,8 +266,18 @@ function loadScheduleBlockTasks() {
   }
 }
 
+function loadScheduleBlockTasksMeta() {
+  try {
+    const raw = localStorage.getItem(SCHEDULE_BLOCK_TASKS_META_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 function saveScheduleBlockTasks() {
   localStorage.setItem(SCHEDULE_BLOCK_TASKS_KEY, JSON.stringify(scheduleBlockTasks));
+  localStorage.setItem(SCHEDULE_BLOCK_TASKS_META_KEY, JSON.stringify(scheduleBlockTasksMeta));
   markLocalStateUpdated();
   scheduleCloudSave();
 }
@@ -250,8 +291,18 @@ function loadWeekendPlannerNotes() {
   }
 }
 
+function loadWeekendPlannerNotesMeta() {
+  try {
+    const raw = localStorage.getItem(WEEKEND_PLANNER_META_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 function saveWeekendPlannerNotes() {
   localStorage.setItem(WEEKEND_PLANNER_KEY, JSON.stringify(weekendPlannerNotes));
+  localStorage.setItem(WEEKEND_PLANNER_META_KEY, JSON.stringify(weekendPlannerNotesMeta));
   markLocalStateUpdated();
   scheduleCloudSave();
 }
@@ -304,11 +355,15 @@ function backupLocalState(reason = "manual") {
     data: {
       tasks,
       dayDates,
+      dayDatesMeta,
       scheduleNotes,
+      scheduleNotesMeta,
       scheduleCompleted,
       deletedTaskIds,
       scheduleBlockTasks,
+      scheduleBlockTasksMeta,
       weekendPlannerNotes,
+      weekendPlannerNotesMeta,
       stickyNotes,
     },
   };
@@ -405,7 +460,7 @@ async function initSupabase() {
   setInterval(() => {
     if (!cloudReady || document.hidden) return;
     hydrateFromCloud();
-  }, 30000);
+  }, 8000);
 }
 
 function buildCloudPayload() {
@@ -414,11 +469,15 @@ function buildCloudPayload() {
   return {
     tasks,
     dayDates,
+    dayDatesMeta,
     scheduleNotes,
+    scheduleNotesMeta,
     scheduleCompleted,
     deletedTaskIds,
     scheduleBlockTasks,
+    scheduleBlockTasksMeta,
     weekendPlannerNotes,
+    weekendPlannerNotesMeta,
     stickyNotes,
     updatedAt: now,
   };
@@ -429,16 +488,54 @@ function hasAnyLocalState() {
     tasks.length ||
       stickyNotes.length ||
       Object.keys(dayDates).length ||
+      Object.keys(dayDatesMeta).length ||
       Object.keys(scheduleNotes).length ||
+      Object.keys(scheduleNotesMeta).length ||
       Object.keys(scheduleCompleted).length ||
       Object.keys(deletedTaskIds).length ||
       Object.keys(scheduleBlockTasks).length ||
+      Object.keys(scheduleBlockTasksMeta).length ||
       Object.keys(weekendPlannerNotes).length
+      || Object.keys(weekendPlannerNotesMeta).length
   );
 }
 
 function taskTimestamp(task) {
   return Number(task.updatedAt || task.completedAt || task.createdAt || 0);
+}
+
+function timestampValue(value) {
+  return Number(value || 0);
+}
+
+function mapEntryTimestamp(map, key, fallback = 0) {
+  const value = (map || {})[key];
+  if (!value || typeof value !== "object") return timestampValue(fallback);
+  return timestampValue(value.updatedAt || fallback);
+}
+
+function mergeTimestampedMap(localMap, cloudMap, localMeta, cloudMeta, fallbackLocalTs = 0, fallbackCloudTs = 0) {
+  const nextMap = {};
+  const nextMeta = {};
+  const keys = new Set([
+    ...Object.keys(localMap || {}),
+    ...Object.keys(cloudMap || {}),
+    ...Object.keys(localMeta || {}),
+    ...Object.keys(cloudMeta || {}),
+  ]);
+
+  keys.forEach((key) => {
+    const localTs = timestampValue((localMeta || {})[key]) || mapEntryTimestamp(localMap, key, fallbackLocalTs);
+    const cloudTs = timestampValue((cloudMeta || {})[key]) || mapEntryTimestamp(cloudMap, key, fallbackCloudTs);
+    const useCloud = cloudTs > localTs;
+    const winnerMap = useCloud ? (cloudMap || {}) : (localMap || {});
+    if (Object.prototype.hasOwnProperty.call(winnerMap, key)) {
+      nextMap[key] = winnerMap[key];
+    }
+    nextMeta[key] = Math.max(localTs, cloudTs);
+  });
+
+  return { map: nextMap, meta: nextMeta };
 }
 
 function mergeDeletedTaskIds(localDeleted, cloudDeleted) {
@@ -511,13 +608,57 @@ function applyCloudPayload(payload) {
   const cloudTasks = Array.isArray(payload.tasks) ? payload.tasks : [];
   const localStickyNotes = Array.isArray(stickyNotes) ? stickyNotes : [];
   const cloudStickyNotes = Array.isArray(payload.stickyNotes) ? payload.stickyNotes : [];
+  const cloudDayDatesMeta = payload.dayDatesMeta || {};
+  const cloudScheduleNotesMeta = payload.scheduleNotesMeta || {};
+  const cloudScheduleBlockTasksMeta = payload.scheduleBlockTasksMeta || {};
+  const cloudWeekendPlannerNotesMeta = payload.weekendPlannerNotesMeta || {};
   deletedTaskIds = mergeDeletedTaskIds(deletedTaskIds, payload.deletedTaskIds || {});
   tasks = mergeTasks(localTasks, cloudTasks, deletedTaskIds);
-  dayDates = payload.dayDates || {};
-  scheduleNotes = payload.scheduleNotes || {};
+  const mergedDayDates = mergeTimestampedMap(
+    dayDates,
+    payload.dayDates || {},
+    dayDatesMeta,
+    cloudDayDatesMeta,
+    0,
+    cloudUpdatedAt
+  );
+  dayDates = mergedDayDates.map;
+  dayDatesMeta = mergedDayDates.meta;
+
+  const mergedScheduleNotes = mergeTimestampedMap(
+    scheduleNotes,
+    payload.scheduleNotes || {},
+    scheduleNotesMeta,
+    cloudScheduleNotesMeta,
+    0,
+    cloudUpdatedAt
+  );
+  scheduleNotes = mergedScheduleNotes.map;
+  scheduleNotesMeta = mergedScheduleNotes.meta;
+
+  const mergedScheduleBlockTasks = mergeTimestampedMap(
+    scheduleBlockTasks,
+    payload.scheduleBlockTasks || {},
+    scheduleBlockTasksMeta,
+    cloudScheduleBlockTasksMeta,
+    0,
+    cloudUpdatedAt
+  );
+  scheduleBlockTasks = mergedScheduleBlockTasks.map;
+  scheduleBlockTasksMeta = mergedScheduleBlockTasks.meta;
+
+  const mergedWeekendPlannerNotes = mergeTimestampedMap(
+    weekendPlannerNotes,
+    payload.weekendPlannerNotes || {},
+    weekendPlannerNotesMeta,
+    cloudWeekendPlannerNotesMeta,
+    0,
+    cloudUpdatedAt
+  );
+  weekendPlannerNotes = mergedWeekendPlannerNotes.map;
+  weekendPlannerNotesMeta = mergedWeekendPlannerNotes.meta;
+
   scheduleCompleted = payload.scheduleCompleted || {};
-  scheduleBlockTasks = payload.scheduleBlockTasks || {};
-  weekendPlannerNotes = payload.weekendPlannerNotes || {};
   stickyNotes = mergeStickyNotes(localStickyNotes, cloudStickyNotes);
   saveTasks();
   saveDayDates();
@@ -584,7 +725,7 @@ function scheduleCloudSave() {
   if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
   cloudSaveTimer = setTimeout(() => {
     saveCloudNow();
-  }, 600);
+  }, 180);
 }
 
 function openStickyModal(note = null) {
@@ -696,6 +837,54 @@ function getWeekDates() {
   return { sunday, monday, tuesday, wednesday, thursday, friday, saturday };
 }
 
+const WEEKDAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+const WEEKDAY_DEFAULT_LABELS = {
+  monday: "Monday",
+  tuesday: "Tuesday",
+  wednesday: "Wednesday",
+  thursday: "Thursday",
+  friday: "Friday",
+};
+
+function getAutoWeekdayPresentation(dayKey) {
+  const weekDates = getWeekDates();
+  const date = weekDates[dayKey];
+  return {
+    dayLabel: WEEKDAY_DEFAULT_LABELS[dayKey] || "",
+    dateLabel: date ? formatShortDate(date) : "",
+    isoDate: date ? date.toISOString().slice(0, 10) : "",
+  };
+}
+
+function getDisplayWeekdayPresentation(dayKey) {
+  const auto = getAutoWeekdayPresentation(dayKey);
+  const override = dayDates[dayKey];
+  if (!override) return auto;
+  return {
+    dayLabel: (override.dayLabel || "").trim() || auto.dayLabel,
+    dateLabel: (override.dateLabel || "").trim() || auto.dateLabel,
+    isoDate: auto.isoDate,
+  };
+}
+
+function setDayDateOverride(dayKey, dayLabel, dateLabel) {
+  const nextTs = Date.now();
+  dayDates[dayKey] = {
+    dayLabel: dayLabel.trim(),
+    dateLabel: dateLabel.trim(),
+    updatedAt: nextTs,
+  };
+  dayDatesMeta[dayKey] = nextTs;
+  saveDayDates();
+}
+
+function clearDayDateOverride(dayKey) {
+  const nextTs = Date.now();
+  delete dayDates[dayKey];
+  dayDatesMeta[dayKey] = nextTs;
+  saveDayDates();
+}
+
 function getSlotMeta(slot) {
   const start = Number(slot.style.getPropertyValue("--start") || 0);
   const end = Number(slot.style.getPropertyValue("--end") || 0);
@@ -730,10 +919,12 @@ function renderBlockTaskEditor(slotId) {
     check.type = "checkbox";
     check.checked = Boolean(task.done);
     check.addEventListener("change", () => {
+      const now = Date.now();
       const next = (scheduleBlockTasks[slotId] || []).map((item) =>
         item.id === task.id ? { ...item, done: check.checked } : item
       );
       scheduleBlockTasks[slotId] = next;
+      scheduleBlockTasksMeta[slotId] = now;
       saveScheduleBlockTasks();
       renderBlockTaskEditor(slotId);
       renderBlockMeta();
@@ -747,7 +938,9 @@ function renderBlockTaskEditor(slotId) {
     removeBtn.className = "icon-btn";
     removeBtn.textContent = "Remove";
     removeBtn.addEventListener("click", () => {
+      const now = Date.now();
       scheduleBlockTasks[slotId] = (scheduleBlockTasks[slotId] || []).filter((item) => item.id !== task.id);
+      scheduleBlockTasksMeta[slotId] = now;
       saveScheduleBlockTasks();
       renderBlockTaskEditor(slotId);
       renderBlockMeta();
@@ -779,13 +972,15 @@ function openNoteModal(slot) {
 function persistActiveNoteDraft() {
   const id = noteSlotId.value;
   if (!id) return;
+  const now = Date.now();
   const title = noteTitle.value.trim();
   const text = noteText.value.trim();
   if (title || text) {
-    scheduleNotes[id] = { title, text, updatedAt: Date.now() };
+    scheduleNotes[id] = { title, text, updatedAt: now };
   } else {
     delete scheduleNotes[id];
   }
+  scheduleNotesMeta[id] = now;
   saveScheduleNotes();
   renderScheduleNotes();
   renderBlockMeta();
@@ -1519,22 +1714,54 @@ function renderScheduleCompletion() {
 }
 
 function renderDayDates() {
-  const weekDates = getWeekDates();
-  const map = {
-    monday: weekDates.monday,
-    tuesday: weekDates.tuesday,
-    wednesday: weekDates.wednesday,
-    thursday: weekDates.thursday,
-    friday: weekDates.friday,
-  };
-  document.querySelectorAll("[data-day-date]").forEach((el) => {
-    const key = el.dataset.dayDate;
-    const date = map[key];
-    if (!date) {
-      el.textContent = "";
-      return;
+  document.querySelectorAll(".day-label[data-day-key]").forEach((labelEl) => {
+    const key = labelEl.dataset.dayKey;
+    if (!key) return;
+    const nameEl = labelEl.querySelector("[data-day-name]");
+    const dateEl = labelEl.querySelector("[data-day-date]");
+    const view = getDisplayWeekdayPresentation(key);
+    if (nameEl) nameEl.textContent = view.dayLabel;
+    if (dateEl) dateEl.textContent = view.dateLabel;
+    if (dayDates[key]) {
+      labelEl.dataset.dayCustom = "true";
+    } else {
+      delete labelEl.dataset.dayCustom;
     }
-    el.textContent = formatShortDate(date);
+  });
+}
+
+function openDayEditorModal(dayKey) {
+  if (!WEEKDAY_KEYS.includes(dayKey)) return;
+  const auto = getAutoWeekdayPresentation(dayKey);
+  const view = getDisplayWeekdayPresentation(dayKey);
+  dateDayKey.value = dayKey;
+  dayNameInput.value = view.dayLabel;
+  dateInput.value = view.dateLabel;
+  dayDatePicker.value = auto.isoDate;
+  if (dateModalTitle) {
+    dateModalTitle.textContent = `Edit ${auto.dayLabel}`;
+  }
+  dateModal.classList.add("show");
+  dateModal.setAttribute("aria-hidden", "false");
+  dayNameInput.focus();
+}
+
+function closeDayEditorModal() {
+  dateModal.classList.remove("show");
+  dateModal.setAttribute("aria-hidden", "true");
+  dateDayKey.value = "";
+  dayNameInput.value = "";
+  dateInput.value = "";
+  dayDatePicker.value = "";
+}
+
+function bindDayHeaderEditors() {
+  document.querySelectorAll(".day-label[data-day-key]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const key = el.dataset.dayKey;
+      if (!key) return;
+      openDayEditorModal(key);
+    });
   });
 }
 
@@ -1711,7 +1938,9 @@ function renderWeekendPlanner(dayName) {
     const key = getWeekendKey(dayName, hour);
     input.value = weekendPlannerNotes[key] || "";
     input.addEventListener("input", () => {
+      const now = Date.now();
       weekendPlannerNotes[key] = input.value;
+      weekendPlannerNotesMeta[key] = now;
       saveWeekendPlannerNotes();
     });
     row.appendChild(hourText);
@@ -1995,6 +2224,7 @@ noteViewModal.addEventListener("click", (e) => {
 });
 noteViewDelete.addEventListener("click", () => {
   if (!noteViewSlotId) return;
+  scheduleNotesMeta[noteViewSlotId] = Date.now();
   delete scheduleNotes[noteViewSlotId];
   saveScheduleNotes();
   renderScheduleNotes();
@@ -2047,6 +2277,11 @@ window.addEventListener("focus", () => {
   enforceSyncAlertState();
   if (cloudReady) hydrateFromCloud();
 });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && cloudReady) {
+    hydrateFromCloud();
+  }
+});
 toggleTasks.addEventListener("click", () => {
   document.body.classList.toggle("tasks-hidden");
   toggleTasks.textContent = document.body.classList.contains("tasks-hidden")
@@ -2061,33 +2296,47 @@ openCompleted.addEventListener("click", () => {
 });
 
 if (closeDateModal) {
-  closeDateModal.addEventListener("click", () => {
-    dateModal.classList.remove("show");
-    dateModal.setAttribute("aria-hidden", "true");
-  });
+  closeDateModal.addEventListener("click", closeDayEditorModal);
 }
 
 if (dateModal) {
   dateModal.addEventListener("click", (e) => {
     if (e.target === dateModal) {
-      dateModal.classList.remove("show");
-      dateModal.setAttribute("aria-hidden", "true");
+      closeDayEditorModal();
     }
   });
 }
 
 if (clearDateBtn) {
   clearDateBtn.addEventListener("click", () => {
-    dateModal.classList.remove("show");
-    dateModal.setAttribute("aria-hidden", "true");
+    const key = dateDayKey.value;
+    if (!WEEKDAY_KEYS.includes(key)) return;
+    clearDayDateOverride(key);
+    renderDayDates();
+    closeDayEditorModal();
   });
 }
 
 if (dateForm) {
   dateForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    dateModal.classList.remove("show");
-    dateModal.setAttribute("aria-hidden", "true");
+    const key = dateDayKey.value;
+    if (!WEEKDAY_KEYS.includes(key)) return;
+    const dayLabel = dayNameInput.value.trim();
+    const dateLabel = dateInput.value.trim();
+    if (!dayLabel || !dateLabel) return;
+    setDayDateOverride(key, dayLabel, dateLabel);
+    renderDayDates();
+    closeDayEditorModal();
+  });
+}
+
+if (dayDatePicker) {
+  dayDatePicker.addEventListener("change", () => {
+    if (!dayDatePicker.value) return;
+    const nextDate = new Date(`${dayDatePicker.value}T00:00:00`);
+    if (Number.isNaN(nextDate.getTime())) return;
+    dateInput.value = formatShortDate(nextDate);
   });
 }
 
@@ -2133,13 +2382,16 @@ addBlockTask.addEventListener("click", () => {
   const slotId = noteSlotId.value;
   const text = blockTaskInput.value.trim();
   if (!slotId || !text) return;
+  const now = Date.now();
   const list = scheduleBlockTasks[slotId] || [];
   list.push({
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     text,
     done: false,
+    updatedAt: now,
   });
   scheduleBlockTasks[slotId] = list;
+  scheduleBlockTasksMeta[slotId] = now;
   blockTaskInput.value = "";
   saveScheduleBlockTasks();
   renderBlockTaskEditor(slotId);
@@ -2159,6 +2411,7 @@ openSaturdayBtn.addEventListener("click", () => showWeekendPlanner("Saturday"));
 hideWeekendBtn.addEventListener("click", hideWeekendPlanner);
 
 bindScheduleToggle();
+bindDayHeaderEditors();
 recoverMissingTasksFromBackup();
 renderDayDates();
 renderScheduleCompletion();

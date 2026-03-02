@@ -75,11 +75,26 @@
             <div class="schedule-frame">
               <button class="weekend-toggle sunday" id="open-sunday" type="button">Sunday</button>
               <div class="schedule-header">
-                <div class="day-label" data-day-key="monday">Monday <span class="day-date" data-day-date="monday"></span></div>
-                <div class="day-label" data-day-key="tuesday">Tuesday <span class="day-date" data-day-date="tuesday"></span></div>
-                <div class="day-label" data-day-key="wednesday">Wednesday <span class="day-date" data-day-date="wednesday"></span></div>
-                <div class="day-label" data-day-key="thursday">Thursday <span class="day-date" data-day-date="thursday"></span></div>
-                <div class="day-label" data-day-key="friday">Friday <span class="day-date" data-day-date="friday"></span></div>
+                <button class="day-label" data-day-key="monday" type="button">
+                  <span class="day-name" data-day-name="monday">Monday</span>
+                  <span class="day-date" data-day-date="monday"></span>
+                </button>
+                <button class="day-label" data-day-key="tuesday" type="button">
+                  <span class="day-name" data-day-name="tuesday">Tuesday</span>
+                  <span class="day-date" data-day-date="tuesday"></span>
+                </button>
+                <button class="day-label" data-day-key="wednesday" type="button">
+                  <span class="day-name" data-day-name="wednesday">Wednesday</span>
+                  <span class="day-date" data-day-date="wednesday"></span>
+                </button>
+                <button class="day-label" data-day-key="thursday" type="button">
+                  <span class="day-name" data-day-name="thursday">Thursday</span>
+                  <span class="day-date" data-day-date="thursday"></span>
+                </button>
+                <button class="day-label" data-day-key="friday" type="button">
+                  <span class="day-name" data-day-name="friday">Friday</span>
+                  <span class="day-date" data-day-date="friday"></span>
+                </button>
               </div>
               <button class="weekend-toggle saturday" id="open-saturday" type="button">Saturday</button>
             </div>
@@ -377,12 +392,20 @@
       <form id="date-form" class="form">
         <input type="hidden" id="date-day-key" />
         <div class="field span-2">
-          <label for="day-date-input">Date</label>
-          <input id="day-date-input" type="date" required />
+          <label for="day-name-input">Day Label</label>
+          <input id="day-name-input" type="text" placeholder="Monday" required />
+        </div>
+        <div class="field span-2">
+          <label for="day-date-input">Date Label</label>
+          <input id="day-date-input" type="text" placeholder="Mar 2" required />
+        </div>
+        <div class="field span-2">
+          <label for="day-date-picker">Quick Date Picker (optional)</label>
+          <input id="day-date-picker" type="date" />
         </div>
         <div class="actions span-2">
-          <button class="btn primary" type="submit">Save Date</button>
-          <button class="btn ghost" type="button" id="clear-date">Clear</button>
+          <button class="btn primary" type="submit">Save Day</button>
+          <button class="btn ghost" type="button" id="clear-date">Undo to Auto</button>
         </div>
       </form>
     </div>

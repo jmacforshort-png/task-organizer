@@ -510,6 +510,13 @@ h1 {
   filter: saturate(0.96);
 }
 
+.slot.completed,
+.slot.completed.time-past,
+.slot.completed.time-active,
+.slot.completed.time-future {
+  filter: saturate(0.78) brightness(0.84);
+}
+
 .slot.block-urgent {
   box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.45);
 }

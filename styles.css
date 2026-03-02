@@ -455,8 +455,7 @@ h1 {
 }
 
 .slot.completed {
-  filter: grayscale(0.55) brightness(0.86);
-  opacity: 0.75;
+  filter: saturate(0.78) brightness(0.84);
 }
 
 .slot-note-badge {

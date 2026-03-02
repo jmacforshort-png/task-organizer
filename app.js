@@ -1665,6 +1665,18 @@ function handleMouseUp() {
 
 function bindScheduleToggle() {
   document.querySelectorAll(".slot").forEach((slot) => {
+    slot.addEventListener("click", () => {
+      const id = slot.dataset.slotId;
+      if (!id) return;
+      if (scheduleCompleted[id]) {
+        delete scheduleCompleted[id];
+      } else {
+        scheduleCompleted[id] = true;
+      }
+      saveScheduleCompleted();
+      renderScheduleCompletion();
+    });
+
     slot.addEventListener("dblclick", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -1709,7 +1721,12 @@ function mergeStickyNotes(localNotes, cloudNotes) {
 
 function renderScheduleCompletion() {
   document.querySelectorAll(".slot").forEach((slot) => {
-    slot.classList.remove("completed");
+    const slotId = slot.dataset.slotId;
+    if (slotId && scheduleCompleted[slotId]) {
+      slot.classList.add("completed");
+    } else {
+      slot.classList.remove("completed");
+    }
   });
 }
 

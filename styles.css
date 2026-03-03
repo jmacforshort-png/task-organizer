@@ -604,14 +604,14 @@ h1 {
   position: absolute;
   overflow: hidden;
   pointer-events: auto;
-  width: 152px;
-  height: 88px;
+  width: 108px;
+  height: 74px;
   border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 14px;
-  padding: 8px 10px 8px 12px;
+  border-radius: 12px;
+  padding: 7px 8px 7px 10px;
   background: rgba(255, 255, 255, 0.98);
   display: grid;
-  gap: 3px;
+  gap: 2px;
   box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
   transform: translate(-50%, -50%) scale(var(--task-scale, 1));
   animation: floaty var(--float-duration, 6s) ease-in-out var(--float-delay, 0s) infinite;
@@ -661,33 +661,34 @@ h1 {
 
 .task-title {
   font-weight: 700;
-  font-size: 12px;
+  font-size: 10px;
+  line-height: 1.1;
 }
 
 .task-date {
   position: absolute;
-  top: 5px;
-  right: 7px;
-  font-size: 9px;
+  top: 4px;
+  right: 6px;
+  font-size: 8px;
   font-weight: 700;
   opacity: 0.75;
 }
 
 .task-done-date {
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   opacity: 0.85;
 }
 
 .task-meta {
-  font-size: 10px;
+  font-size: 8px;
   color: rgba(15, 23, 42, 0.7);
 }
 
 .task-actions {
   display: flex;
-  gap: 5px;
-  margin-top: 2px;
+  gap: 4px;
+  margin-top: 1px;
   flex-wrap: nowrap;
 }
 
@@ -705,13 +706,13 @@ h1 {
 .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 .task-action-icon {
-  min-width: 24px;
-  min-height: 24px;
+  min-width: 18px;
+  min-height: 18px;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 10px;
   line-height: 1;
 }
 

@@ -102,12 +102,12 @@ const weekendHours = document.getElementById("weekend-hours");
 const hideWeekendBtn = document.getElementById("hide-weekend");
 
 const TIMEFRAMES = ["Today", "Tomorrow", "End of the week", "Next month", "Way out"];
-const TASK_CARD_W = 152;
-const TASK_CARD_H = 88;
+const TASK_CARD_W = 108;
+const TASK_CARD_H = 74;
 const TASK_LAYOUT_PADDING = 10;
 const TASK_COLS_PER_ROW = 3;
-const TASK_ROW_GAP = 16;
-const TASK_COL_GAP = 12;
+const TASK_ROW_GAP = 12;
+const TASK_COL_GAP = 8;
 const TASK_LANE_PADDING = 10;
 const SCHEDULE_BLOCK_TASKS_KEY = "task-organizer:schedule-block-tasks";
 const SCHEDULE_BLOCK_TASKS_META_KEY = "task-organizer:schedule-block-tasks-meta";
@@ -1346,7 +1346,7 @@ function positionTasks(items) {
     sortedGroup.forEach((task) => {
       const card = renderTaskCard(task, index);
       orbitTasks.appendChild(card);
-      if (task.position && task.position.locked) {
+      if (task.position && task.position.locked && task.position.userPlaced) {
         locked.push({
           card,
           x: task.position.x,
@@ -1529,7 +1529,7 @@ function lockTaskPosition(taskId, x, y) {
   if (!taskId || !Number.isFinite(x) || !Number.isFinite(y)) return;
   tasks = tasks.map((t) => {
     if (t.id !== taskId) return t;
-    return { ...t, position: { x, y, locked: true }, updatedAt: Date.now() };
+    return { ...t, position: { x, y, locked: true, userPlaced: true }, updatedAt: Date.now() };
   });
   saveTasks();
 }

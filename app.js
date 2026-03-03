@@ -1574,20 +1574,11 @@ function resetAllPositions() {
   saveTasks();
 }
 
-function lockAllPositions() {
-  const cards = document.querySelectorAll(".task-pill");
-  const positions = {};
-  cards.forEach((card) => {
-    const id = card.dataset.taskId;
-    const x = parseFloat(card.style.left || "0");
-    const y = parseFloat(card.style.top || "0");
-    if (!id || !Number.isFinite(x) || !Number.isFinite(y)) return;
-    positions[id] = { x, y };
-  });
+function lockTaskPosition(taskId, x, y) {
+  if (!taskId || !Number.isFinite(x) || !Number.isFinite(y)) return;
   tasks = tasks.map((t) => {
-    const pos = positions[t.id];
-    if (!pos) return t;
-    return { ...t, position: { x: pos.x, y: pos.y, locked: true } };
+    if (t.id !== taskId) return t;
+    return { ...t, position: { x, y, locked: true }, updatedAt: Date.now() };
   });
   saveTasks();
 }
@@ -1638,10 +1629,9 @@ function handleMouseUp() {
     dragTarget.style.top = `${y + (dy / dist) * push}px`;
   }
   const id = dragTarget.dataset.taskId;
-  const task = tasks.find((t) => t.id === id);
-  if (task) {
-    lockAllPositions();
-  }
+  const finalX = parseFloat(dragTarget.style.left);
+  const finalY = parseFloat(dragTarget.style.top);
+  lockTaskPosition(id, finalX, finalY);
   dragTarget.classList.remove("dragging");
   dragTarget = null;
   isDragging = false;

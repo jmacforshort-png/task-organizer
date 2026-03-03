@@ -483,23 +483,6 @@ function buildCloudPayload() {
   };
 }
 
-function hasAnyLocalState() {
-  return Boolean(
-    tasks.length ||
-      stickyNotes.length ||
-      Object.keys(dayDates).length ||
-      Object.keys(dayDatesMeta).length ||
-      Object.keys(scheduleNotes).length ||
-      Object.keys(scheduleNotesMeta).length ||
-      Object.keys(scheduleCompleted).length ||
-      Object.keys(deletedTaskIds).length ||
-      Object.keys(scheduleBlockTasks).length ||
-      Object.keys(scheduleBlockTasksMeta).length ||
-      Object.keys(weekendPlannerNotes).length
-      || Object.keys(weekendPlannerNotesMeta).length
-  );
-}
-
 function taskTimestamp(task) {
   return Number(task.updatedAt || task.completedAt || task.createdAt || 0);
 }
@@ -596,11 +579,6 @@ function recoverMissingTasksFromBackup() {
 function applyCloudPayload(payload) {
   if (!payload) return;
   const cloudUpdatedAt = Number(payload.updatedAt || 0);
-  const localHasData = hasAnyLocalState();
-  const cloudIsStale =
-    (cloudUpdatedAt > 0 && cloudUpdatedAt < stateUpdatedAt) ||
-    (cloudUpdatedAt <= 0 && stateUpdatedAt > 0 && localHasData);
-  if (cloudIsStale) return;
 
   backupLocalState("before-cloud-apply");
   isApplyingCloudState = true;

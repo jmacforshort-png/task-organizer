@@ -102,8 +102,8 @@ const weekendHours = document.getElementById("weekend-hours");
 const hideWeekendBtn = document.getElementById("hide-weekend");
 
 const TIMEFRAMES = ["Today", "Tomorrow", "End of the week", "Next month", "Way out"];
-const TASK_CARD_W = 190;
-const TASK_CARD_H = 110;
+const TASK_CARD_W = 152;
+const TASK_CARD_H = 88;
 const TASK_MIN_GAP = 22;
 const TASK_LAYOUT_PADDING = 10;
 const TASK_MIN_CENTER_DIST = Math.max(TASK_CARD_W, TASK_CARD_H) + TASK_MIN_GAP;
@@ -1027,18 +1027,24 @@ function renderTaskCard(task, index) {
   actions.className = "task-actions";
 
   const toggleBtn = document.createElement("button");
-  toggleBtn.className = "icon-btn";
-  toggleBtn.textContent = task.done ? "Undo" : "Done";
+  toggleBtn.className = "icon-btn task-action-icon";
+  toggleBtn.textContent = "✓";
+  toggleBtn.setAttribute("aria-label", task.done ? "Undo Task" : "Mark Task Done");
+  toggleBtn.title = task.done ? "Undo" : "Done";
   toggleBtn.addEventListener("click", () => toggleTask(task.id));
 
   const editBtn = document.createElement("button");
-  editBtn.className = "icon-btn";
-  editBtn.textContent = "Edit";
+  editBtn.className = "icon-btn task-action-icon";
+  editBtn.textContent = "✎";
+  editBtn.setAttribute("aria-label", "Edit Task");
+  editBtn.title = "Edit";
   editBtn.addEventListener("click", () => openModalView(task));
 
   const deleteBtn = document.createElement("button");
-  deleteBtn.className = "icon-btn";
-  deleteBtn.textContent = "Delete";
+  deleteBtn.className = "icon-btn task-action-icon";
+  deleteBtn.textContent = "🗑";
+  deleteBtn.setAttribute("aria-label", "Delete Task");
+  deleteBtn.title = "Delete";
   deleteBtn.addEventListener("click", () => removeTask(task.id));
 
   actions.appendChild(toggleBtn);

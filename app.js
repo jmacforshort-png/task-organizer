@@ -429,35 +429,51 @@ function updateCloudStatus(text) {
   enforceSyncAlertState();
 }
 
+function formatCloudError(error, fallbackText) {
+  const message = error?.message || "";
+  if (/failed to fetch/i.test(message)) {
+    return "Network error contacting cloud sync. Check internet access, content blockers, or browser privacy settings.";
+  }
+  return message || fallbackText;
+}
+
 async function initSupabase() {
   if (!isSupabaseConfigured() || !window.supabase) {
     updateCloudStatus("Cloud Sync: Not configured");
     openCloud.setAttribute("disabled", "disabled");
     return;
   }
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  if (sessionData.session) {
-    cloudReady = true;
-    cloudUserId = sessionData.session.user.id;
-    updateCloudStatus("Cloud Sync: Connected");
-    await hydrateFromCloud();
-  } else {
-    updateCloudStatus("Cloud Sync: Signed out");
-  }
-
-  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-    if (session) {
+  try {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    if (sessionData.session) {
       cloudReady = true;
-      cloudUserId = session.user.id;
+      cloudUserId = sessionData.session.user.id;
       updateCloudStatus("Cloud Sync: Connected");
       await hydrateFromCloud();
     } else {
-      cloudReady = false;
-      cloudUserId = null;
       updateCloudStatus("Cloud Sync: Signed out");
     }
-  });
+
+    supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        cloudReady = true;
+        cloudUserId = session.user.id;
+        updateCloudStatus("Cloud Sync: Connected");
+        await hydrateFromCloud();
+      } else {
+        cloudReady = false;
+        cloudUserId = null;
+        updateCloudStatus("Cloud Sync: Signed out");
+      }
+    });
+  } catch (error) {
+    cloudReady = false;
+    cloudUserId = null;
+    cloudFeedback.textContent = formatCloudError(error, "Cloud sync failed to initialize.");
+    updateCloudStatus("Cloud Sync: Out of sync");
+    return;
+  }
 
   setInterval(() => {
     if (!cloudReady || document.hidden) return;
@@ -670,7 +686,7 @@ async function hydrateFromCloud() {
     .limit(1)
     .maybeSingle();
   if (error) {
-    cloudFeedback.textContent = `Sync error: ${error.message || "unknown error"}`;
+    cloudFeedback.textContent = `Sync error: ${formatCloudError(error, "unknown error")}`;
     updateCloudStatus("Cloud Sync: Out of sync");
     return;
   }
@@ -692,7 +708,7 @@ async function saveCloudNow() {
     onConflict: "user_id",
   });
   if (error) {
-    cloudFeedback.textContent = `Sync error: ${error.message || "unknown error"}`;
+    cloudFeedback.textContent = `Sync error: ${formatCloudError(error, "unknown error")}`;
     updateCloudStatus("Cloud Sync: Out of sync");
     return;
   }
@@ -2126,9 +2142,14 @@ cloudForm.addEventListener("submit", async (e) => {
   }
   const email = cloudEmail.value.trim();
   const password = cloudPassword.value;
-  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  if (error) {
-    cloudFeedback.textContent = error.message || "Sign in failed.";
+  try {
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+      cloudFeedback.textContent = formatCloudError(error, "Sign in failed.");
+      return;
+    }
+  } catch (error) {
+    cloudFeedback.textContent = formatCloudError(error, "Sign in failed.");
     return;
   }
   cloudFeedback.textContent = "Signed in.";
@@ -2142,9 +2163,14 @@ cloudSignup.addEventListener("click", async () => {
   }
   const email = cloudEmail.value.trim();
   const password = cloudPassword.value;
-  const { error } = await supabaseClient.auth.signUp({ email, password });
-  if (error) {
-    cloudFeedback.textContent = error.message || "Sign up failed.";
+  try {
+    const { error } = await supabaseClient.auth.signUp({ email, password });
+    if (error) {
+      cloudFeedback.textContent = formatCloudError(error, "Sign up failed.");
+      return;
+    }
+  } catch (error) {
+    cloudFeedback.textContent = formatCloudError(error, "Sign up failed.");
     return;
   }
   cloudFeedback.textContent = "Account created. Check your email if confirmation is enabled.";

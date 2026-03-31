@@ -136,6 +136,7 @@ let cloudReady = false;
 let isApplyingCloudState = false;
 let cloudSaveTimer = null;
 let cloudUserId = null;
+let lastCloudHydratedAt = 0;
 let scheduleBlockTasks = loadScheduleBlockTasks();
 let scheduleBlockTasksMeta = loadScheduleBlockTasksMeta();
 let weekendPlannerNotes = loadWeekendPlannerNotes();
@@ -429,6 +430,21 @@ function updateCloudStatus(text) {
   enforceSyncAlertState();
 }
 
+function persistLocalStateSnapshot() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  localStorage.setItem(DATE_LABELS_KEY, JSON.stringify(dayDates));
+  localStorage.setItem(DATE_LABELS_META_KEY, JSON.stringify(dayDatesMeta));
+  localStorage.setItem(SCHEDULE_NOTES_KEY, JSON.stringify(scheduleNotes));
+  localStorage.setItem(SCHEDULE_NOTES_META_KEY, JSON.stringify(scheduleNotesMeta));
+  localStorage.setItem(SCHEDULE_COMPLETED_KEY, JSON.stringify(scheduleCompleted));
+  localStorage.setItem(DELETED_TASKS_KEY, JSON.stringify(deletedTaskIds));
+  localStorage.setItem(SCHEDULE_BLOCK_TASKS_KEY, JSON.stringify(scheduleBlockTasks));
+  localStorage.setItem(SCHEDULE_BLOCK_TASKS_META_KEY, JSON.stringify(scheduleBlockTasksMeta));
+  localStorage.setItem(WEEKEND_PLANNER_KEY, JSON.stringify(weekendPlannerNotes));
+  localStorage.setItem(WEEKEND_PLANNER_META_KEY, JSON.stringify(weekendPlannerNotesMeta));
+  localStorage.setItem(STICKY_KEY, JSON.stringify(stickyNotes));
+}
+
 function formatCloudError(error, fallbackText) {
   const message = error?.message || "";
   if (/failed to fetch/i.test(message)) {
@@ -449,7 +465,7 @@ async function initSupabase() {
     if (sessionData.session) {
       cloudReady = true;
       cloudUserId = sessionData.session.user.id;
-      updateCloudStatus("Cloud Sync: Connected");
+      updateCloudStatus("Cloud Sync: Syncing...");
       await hydrateFromCloud();
     } else {
       updateCloudStatus("Cloud Sync: Signed out");
@@ -459,7 +475,7 @@ async function initSupabase() {
       if (session) {
         cloudReady = true;
         cloudUserId = session.user.id;
-        updateCloudStatus("Cloud Sync: Connected");
+        updateCloudStatus("Cloud Sync: Syncing...");
         await hydrateFromCloud();
       } else {
         cloudReady = false;
@@ -478,7 +494,7 @@ async function initSupabase() {
   setInterval(() => {
     if (!cloudReady || document.hidden) return;
     hydrateFromCloud();
-  }, 8000);
+  }, 15000);
 }
 
 function buildCloudPayload() {
@@ -656,15 +672,9 @@ function applyCloudPayload(payload) {
 
   scheduleCompleted = payload.scheduleCompleted || {};
   stickyNotes = mergeStickyNotes(localStickyNotes, cloudStickyNotes);
-  saveTasks();
-  saveDayDates();
-  saveScheduleNotes();
-  saveScheduleCompleted();
-  saveDeletedTaskIds();
-  saveScheduleBlockTasks();
-  saveWeekendPlannerNotes();
-  saveStickyNotes();
+  persistLocalStateSnapshot();
   markLocalStateUpdated(cloudUpdatedAt || Date.now());
+  lastCloudHydratedAt = cloudUpdatedAt || Date.now();
   isApplyingCloudState = false;
   renderDayDates();
   renderScheduleCompletion();
@@ -673,7 +683,8 @@ function applyCloudPayload(payload) {
   renderNextUpPanel();
   renderStickyNotes();
   render();
-  scheduleCloudSave();
+  cloudFeedback.textContent = "Cloud sync loaded.";
+  updateCloudStatus("Cloud Sync: Connected");
 }
 
 async function hydrateFromCloud() {
@@ -712,12 +723,14 @@ async function saveCloudNow() {
     updateCloudStatus("Cloud Sync: Out of sync");
     return;
   }
+  lastCloudHydratedAt = payload.updatedAt || Date.now();
   cloudFeedback.textContent = "Cloud sync saved.";
   updateCloudStatus("Cloud Sync: Connected");
 }
 
 function scheduleCloudSave() {
   if (isApplyingCloudState || !cloudReady) return;
+  if (Date.now() - lastCloudHydratedAt < 1000) return;
   if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
   cloudSaveTimer = setTimeout(() => {
     saveCloudNow();

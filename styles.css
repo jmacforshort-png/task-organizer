@@ -619,6 +619,15 @@ h1 {
   user-select: none;
 }
 
+.task-motion-lite .task-pill {
+  animation: none;
+  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.06);
+}
+
+.task-motion-lite .task-pill.task-enter {
+  animation: swoop-in 420ms cubic-bezier(0.2, 0.9, 0.2, 1.05) both;
+}
+
 .task-pill.task-enter {
   animation:
     swoop-in 620ms cubic-bezier(0.2, 0.9, 0.2, 1.05) both,

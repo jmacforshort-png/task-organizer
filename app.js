@@ -52,6 +52,7 @@ const STATE_UPDATED_AT_KEY = "task-organizer:state-updated-at";
 const AUTH_PASSWORD = " ";
 const AUTH_KEY = "task-organizer:auth";
 const STICKY_KEY = "task-organizer:sticky-notes";
+const STICKY_DELETED_KEY = "task-organizer:sticky-notes-deleted";
 const SUPABASE_URL = "https://qobroovizfpgwxunhlrj.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_AjE8R1VWav7l6iXNMD5pJw_Qn8qt7Y8";
 const CLOUD_TABLE = "task_organizer_state";
@@ -131,6 +132,7 @@ let deletedTaskIds = loadDeletedTaskIds();
 let dayDates = loadDayDates();
 let dayDatesMeta = loadDayDatesMeta();
 let stickyNotes = loadStickyNotes();
+let deletedStickyNoteIds = loadDeletedStickyNoteIds();
 let supabaseClient = null;
 let cloudReady = false;
 let isApplyingCloudState = false;
@@ -143,6 +145,10 @@ let weekendPlannerNotes = loadWeekendPlannerNotes();
 let weekendPlannerNotesMeta = loadWeekendPlannerNotesMeta();
 let scheduleNotesMeta = loadScheduleNotesMeta();
 let stateUpdatedAt = loadStateUpdatedAt();
+const lowPowerTaskMode = Boolean(
+  (typeof navigator !== "undefined" && Number(navigator.hardwareConcurrency || 0) > 0 && Number(navigator.hardwareConcurrency || 0) <= 4) ||
+  (typeof navigator !== "undefined" && Number(navigator.deviceMemory || 0) > 0 && Number(navigator.deviceMemory || 0) <= 4)
+);
 const enteringTaskIds = new Set();
 const pendingTaskAnimations = new Set();
 let syncAlertDismissedAt = 0;
@@ -152,6 +158,11 @@ let noteAutosaveTimer = null;
 function enforceSyncAlertState() {
   const connected = /Connected/i.test(cloudStatus.textContent || "");
   if (connected) syncAlert.hidden = true;
+}
+
+function updateTaskVisualMode() {
+  const shouldUseLiteMode = lowPowerTaskMode || tasks.length >= 10;
+  document.body.classList.toggle("task-motion-lite", shouldUseLiteMode);
 }
 
 function loadTasks() {
@@ -328,8 +339,18 @@ function loadStickyNotes() {
   }
 }
 
+function loadDeletedStickyNoteIds() {
+  try {
+    const raw = localStorage.getItem(STICKY_DELETED_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 function saveStickyNotes() {
   localStorage.setItem(STICKY_KEY, JSON.stringify(stickyNotes));
+  localStorage.setItem(STICKY_DELETED_KEY, JSON.stringify(deletedStickyNoteIds));
   markLocalStateUpdated();
   scheduleCloudSave();
 }
@@ -368,6 +389,7 @@ function backupLocalState(reason = "manual") {
       weekendPlannerNotes,
       weekendPlannerNotesMeta,
       stickyNotes,
+      deletedStickyNoteIds,
     },
   };
   localStorage.setItem(LOCAL_BACKUP_KEY, JSON.stringify(snapshot));
@@ -443,6 +465,7 @@ function persistLocalStateSnapshot() {
   localStorage.setItem(WEEKEND_PLANNER_KEY, JSON.stringify(weekendPlannerNotes));
   localStorage.setItem(WEEKEND_PLANNER_META_KEY, JSON.stringify(weekendPlannerNotesMeta));
   localStorage.setItem(STICKY_KEY, JSON.stringify(stickyNotes));
+  localStorage.setItem(STICKY_DELETED_KEY, JSON.stringify(deletedStickyNoteIds));
 }
 
 function formatCloudError(error, fallbackText) {
@@ -513,6 +536,7 @@ function buildCloudPayload() {
     weekendPlannerNotes,
     weekendPlannerNotesMeta,
     stickyNotes,
+    deletedStickyNoteIds,
     updatedAt: now,
   };
 }
@@ -556,6 +580,16 @@ function mergeTimestampedMap(localMap, cloudMap, localMeta, cloudMeta, fallbackL
 }
 
 function mergeDeletedTaskIds(localDeleted, cloudDeleted) {
+  const merged = { ...localDeleted };
+  Object.entries(cloudDeleted || {}).forEach(([id, ts]) => {
+    const localTs = Number(merged[id] || 0);
+    const remoteTs = Number(ts || 0);
+    if (remoteTs > localTs) merged[id] = remoteTs;
+  });
+  return merged;
+}
+
+function mergeDeletedStickyNoteIds(localDeleted, cloudDeleted) {
   const merged = { ...localDeleted };
   Object.entries(cloudDeleted || {}).forEach(([id, ts]) => {
     const localTs = Number(merged[id] || 0);
@@ -620,6 +654,7 @@ function applyCloudPayload(payload) {
   const cloudTasks = Array.isArray(payload.tasks) ? payload.tasks : [];
   const localStickyNotes = Array.isArray(stickyNotes) ? stickyNotes : [];
   const cloudStickyNotes = Array.isArray(payload.stickyNotes) ? payload.stickyNotes : [];
+  deletedStickyNoteIds = mergeDeletedStickyNoteIds(deletedStickyNoteIds, payload.deletedStickyNoteIds || {});
   const cloudDayDatesMeta = payload.dayDatesMeta || {};
   const cloudScheduleNotesMeta = payload.scheduleNotesMeta || {};
   const cloudScheduleBlockTasksMeta = payload.scheduleBlockTasksMeta || {};
@@ -671,7 +706,7 @@ function applyCloudPayload(payload) {
   weekendPlannerNotesMeta = mergedWeekendPlannerNotes.meta;
 
   scheduleCompleted = payload.scheduleCompleted || {};
-  stickyNotes = mergeStickyNotes(localStickyNotes, cloudStickyNotes);
+  stickyNotes = mergeStickyNotes(localStickyNotes, cloudStickyNotes, deletedStickyNoteIds);
   persistLocalStateSnapshot();
   markLocalStateUpdated(cloudUpdatedAt || Date.now());
   lastCloudHydratedAt = cloudUpdatedAt || Date.now();
@@ -682,6 +717,7 @@ function applyCloudPayload(payload) {
   renderScheduleNotes();
   renderNextUpPanel();
   renderStickyNotes();
+  updateTaskVisualMode();
   render();
   cloudFeedback.textContent = "Cloud sync loaded.";
   updateCloudStatus("Cloud Sync: Connected");
@@ -1433,6 +1469,7 @@ function positionTasks(items) {
 }
 function render() {
   const items = filteredTasks();
+  updateTaskVisualMode();
   positionTasks(items);
   empty.style.display = items.length === 0 ? "block" : "none";
   updateStats();
@@ -1651,7 +1688,7 @@ function normalizeNoteTimestamp(note) {
   return Number(note.updatedAt || note.createdAt || 0);
 }
 
-function mergeStickyNotes(localNotes, cloudNotes) {
+function mergeStickyNotes(localNotes, cloudNotes, deletedMap = {}) {
   const merged = new Map();
   const ingest = (note) => {
     if (!note || !note.id) return;
@@ -1668,9 +1705,14 @@ function mergeStickyNotes(localNotes, cloudNotes) {
   };
   localNotes.forEach(ingest);
   cloudNotes.forEach(ingest);
-  return Array.from(merged.values()).sort(
-    (a, b) => normalizeNoteTimestamp(b) - normalizeNoteTimestamp(a)
-  );
+  return Array.from(merged.values())
+    .filter((note) => Number(deletedMap[note.id] || 0) <= normalizeNoteTimestamp(note))
+    .sort((a, b) => {
+      if (Number.isFinite(a.sortOrder) && Number.isFinite(b.sortOrder) && a.sortOrder !== b.sortOrder) {
+        return a.sortOrder - b.sortOrder;
+      }
+      return normalizeNoteTimestamp(b) - normalizeNoteTimestamp(a);
+    });
 }
 
 function renderScheduleCompletion() {
@@ -2012,6 +2054,7 @@ function renderStickyNotes() {
     deleteBtn.className = "icon-btn";
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", () => {
+      deletedStickyNoteIds[note.id] = Date.now();
       stickyNotes = stickyNotes.filter((n) => n.id !== note.id);
       saveStickyNotes();
       renderStickyNotes();
@@ -2072,7 +2115,8 @@ function reorderStickyNotes(dragId, targetId) {
   const updated = [...stickyNotes];
   const [moved] = updated.splice(fromIndex, 1);
   updated.splice(toIndex, 0, moved);
-  stickyNotes = updated;
+  const now = Date.now();
+  stickyNotes = updated.map((note, index) => ({ ...note, sortOrder: index, updatedAt: now }));
   saveStickyNotes();
   renderStickyNotes();
   if (cloudReady) saveCloudNow();
@@ -2122,14 +2166,17 @@ stickyForm.addEventListener("submit", (e) => {
   const now = Date.now();
   const id = stickyIdField.value;
   if (id) {
+    delete deletedStickyNoteIds[id];
     stickyNotes = stickyNotes.map((n) =>
       n.id === id
         ? { ...n, title: data.title.trim(), body: data.body.trim(), updatedAt: now }
         : n
     );
   } else {
+    const stickyId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    delete deletedStickyNoteIds[stickyId];
     stickyNotes.unshift({
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id: stickyId,
       title: data.title.trim(),
       body: data.body ? data.body.trim() : "",
       createdAt: now,

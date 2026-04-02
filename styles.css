@@ -306,15 +306,68 @@ h1 {
 .legend-dot.wayout { background: #15803d; }
 
 .completed-list {
+  max-height: min(62vh, 560px);
+  overflow-y: auto;
+  padding-right: 6px;
   font-size: 13px;
   color: var(--ink-700);
 }
 
+.completed-card {
+  max-height: min(78vh, 760px);
+  display: flex;
+  flex-direction: column;
+}
+
+.completed-category-group + .completed-category-group {
+  margin-top: 14px;
+}
+
+.completed-category-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink-900);
+}
+
+.completed-category-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex: none;
+}
+
 .completed-ul {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 0;
   display: grid;
   gap: 8px;
+  list-style: none;
+}
+
+.completed-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-left: 5px solid #94a3b8;
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.95);
+}
+
+.completed-item-title {
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.completed-item-date {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-500);
 }
 
 .orbit-tasks {

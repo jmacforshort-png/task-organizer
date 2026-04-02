@@ -103,6 +103,20 @@ const weekendHours = document.getElementById("weekend-hours");
 const hideWeekendBtn = document.getElementById("hide-weekend");
 
 const TIMEFRAMES = ["Today", "Tomorrow", "End of the week", "Next month", "Way out"];
+const CATEGORY_COLOR_MAP = {
+  Chores: "#f97316",
+  Sonja: "#ec4899",
+  Grading: "#8b5cf6",
+  "Lab supplies": "#06b6d4",
+  "Grades/Comments": "#6366f1",
+  Exercise: "#22c55e",
+  Finance: "#14b8a6",
+  Health: "#84cc16",
+  Personal: "#facc15",
+  Work: "#ef4444",
+  Trips: "#3b82f6",
+  Family: "#fb7185",
+};
 const TASK_CARD_W = 108;
 const TASK_CARD_H = 74;
 const TASK_LAYOUT_PADDING = 10;
@@ -2014,14 +2028,54 @@ function renderCompletedList() {
     completedList.textContent = "No completed tasks yet.";
     return;
   }
-  const ul = document.createElement("ul");
-  ul.className = "completed-ul";
-  for (const t of doneTasks) {
-    const li = document.createElement("li");
-    li.textContent = `${t.title} • ${formatDate(t.completedAt)}`;
-    ul.appendChild(li);
-  }
-  completedList.appendChild(ul);
+
+  const tasksByCategory = doneTasks.reduce((acc, task) => {
+    const key = task.category || "Uncategorized";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(task);
+    return acc;
+  }, {});
+
+  Object.entries(tasksByCategory)
+    .sort(([, groupA], [, groupB]) => (groupB[0]?.completedAt || 0) - (groupA[0]?.completedAt || 0))
+    .forEach(([category, group]) => {
+      const section = document.createElement("section");
+      section.className = "completed-category-group";
+
+      const heading = document.createElement("div");
+      heading.className = "completed-category-heading";
+      const dot = document.createElement("span");
+      dot.className = "completed-category-dot";
+      dot.style.background = CATEGORY_COLOR_MAP[category] || "#64748b";
+      const label = document.createElement("span");
+      label.textContent = `${category} (${group.length})`;
+      heading.appendChild(dot);
+      heading.appendChild(label);
+
+      const ul = document.createElement("ul");
+      ul.className = "completed-ul";
+      group.forEach((task) => {
+        const li = document.createElement("li");
+        li.className = "completed-item";
+        li.style.borderLeftColor = CATEGORY_COLOR_MAP[category] || "#64748b";
+
+        const title = document.createElement("span");
+        title.className = "completed-item-title";
+        title.textContent = task.title;
+
+        const meta = document.createElement("span");
+        meta.className = "completed-item-date";
+        meta.textContent = formatDate(task.completedAt);
+
+        li.appendChild(title);
+        li.appendChild(meta);
+        ul.appendChild(li);
+      });
+
+      section.appendChild(heading);
+      section.appendChild(ul);
+      completedList.appendChild(section);
+    });
 }
 
 function renderStickyNotes() {

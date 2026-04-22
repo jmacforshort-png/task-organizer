@@ -168,6 +168,9 @@ const pendingTaskAnimations = new Set();
 let syncAlertDismissedAt = 0;
 let noteViewSlotId = "";
 let noteAutosaveTimer = null;
+let lastTaskRenderSignature = "";
+let lastTaskLayoutWidth = 0;
+let lastTaskLayoutHeight = 0;
 
 function enforceSyncAlertState() {
   const connected = /Connected/i.test(cloudStatus.textContent || "");
@@ -555,6 +558,23 @@ function buildCloudPayload() {
   };
 }
 
+function getTaskRenderSignature(items) {
+  return items.map((task) => {
+    const pos = task.position || {};
+    return [
+      task.id,
+      task.updatedAt || 0,
+      task.done ? 1 : 0,
+      task.timeframe || "",
+      task.category || "",
+      pos.locked ? 1 : 0,
+      pos.userPlaced ? 1 : 0,
+      pos.x || 0,
+      pos.y || 0,
+    ].join(":");
+  }).join("|");
+}
+
 function taskTimestamp(task) {
   return Number(task.updatedAt || task.completedAt || task.createdAt || 0);
 }
@@ -661,6 +681,11 @@ function recoverMissingTasksFromBackup() {
 function applyCloudPayload(payload) {
   if (!payload) return;
   const cloudUpdatedAt = Number(payload.updatedAt || 0);
+  if (cloudUpdatedAt && cloudUpdatedAt <= lastCloudHydratedAt) {
+    cloudFeedback.textContent = "Cloud sync checked.";
+    updateCloudStatus("Cloud Sync: Connected");
+    return;
+  }
 
   backupLocalState("before-cloud-apply");
   isApplyingCloudState = true;
@@ -1312,10 +1337,22 @@ function placeNodesInLaneRows(nodes, region, bounds, avoidRect, occupied = []) {
 }
 
 function positionTasks(items) {
+  const orbitRect = orbit.getBoundingClientRect();
+  const nextSignature = getTaskRenderSignature(items);
+  const layoutUnchanged =
+    nextSignature === lastTaskRenderSignature &&
+    Math.round(orbitRect.width) === lastTaskLayoutWidth &&
+    Math.round(orbitRect.height) === lastTaskLayoutHeight;
+
+  if (layoutUnchanged) return;
+
+  lastTaskRenderSignature = nextSignature;
+  lastTaskLayoutWidth = Math.round(orbitRect.width);
+  lastTaskLayoutHeight = Math.round(orbitRect.height);
+
   orbitTasks.innerHTML = "";
   if (!items.length) return;
 
-  const orbitRect = orbit.getBoundingClientRect();
   const schedule = document.getElementById("schedule");
   const scheduleRect = schedule.getBoundingClientRect();
 
@@ -1598,11 +1635,13 @@ function resetAutoPositions() {
     return { ...t, position: undefined };
   });
   saveTasks();
+  lastTaskRenderSignature = "";
 }
 
 function resetAllPositions() {
   tasks = tasks.map((t) => ({ ...t, position: undefined }));
   saveTasks();
+  lastTaskRenderSignature = "";
 }
 
 function lockTaskPosition(taskId, x, y) {
@@ -1612,6 +1651,7 @@ function lockTaskPosition(taskId, x, y) {
     return { ...t, position: { x, y, locked: true, userPlaced: true }, updatedAt: Date.now() };
   });
   saveTasks();
+  lastTaskRenderSignature = "";
 }
 
 function handleMouseMove(e) {
@@ -2013,6 +2053,8 @@ function hideWeekendPlanner() {
 }
 
 function layoutOnResize() {
+  lastTaskLayoutWidth = 0;
+  lastTaskLayoutHeight = 0;
   window.requestAnimationFrame(render);
   if (weekendPlanner.classList.contains("show") && weekendPlanner.dataset.day) {
     positionWeekendPanel(weekendPlanner.dataset.day);

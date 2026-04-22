@@ -1428,6 +1428,59 @@ function seedNodesInRegion(nodes, region, anchor) {
   });
 }
 
+function placeNodesInRegionGrid(nodes, region, options = {}) {
+  if (!nodes.length || !region) return;
+  const innerLeft = region.x1 + TASK_LAYOUT_PADDING;
+  const innerRight = region.x2 - TASK_LAYOUT_PADDING;
+  const innerTop = region.y1 + TASK_LAYOUT_PADDING;
+  const innerBottom = region.y2 - TASK_LAYOUT_PADDING;
+  if (innerRight <= innerLeft || innerBottom <= innerTop) return;
+
+  const requestedCols = Math.max(1, Number(options.cols || 1));
+  const gapX = Number(options.gapX || TASK_MIN_GAP * 0.55);
+  const gapY = Number(options.gapY || TASK_MIN_GAP * 0.7);
+  const availableWidth = innerRight - innerLeft;
+  const maxCols = Math.max(1, Math.floor((availableWidth + gapX) / (TASK_CARD_W + gapX)));
+  const cols = Math.max(1, Math.min(requestedCols, maxCols));
+  const colStep = TASK_CARD_W + gapX;
+  const rowStep = TASK_CARD_H + gapY;
+  const gridWidth = cols * TASK_CARD_W + (cols - 1) * gapX;
+  const startX = innerLeft + Math.max(0, (availableWidth - gridWidth) / 2) + TASK_CARD_W / 2;
+  const startY = innerTop + TASK_CARD_H / 2;
+
+  const candidates = [];
+  const maxRows = Math.max(1, Math.floor((innerBottom - innerTop + gapY) / rowStep));
+  for (let row = 0; row < maxRows + 6; row++) {
+    for (let col = 0; col < cols; col++) {
+      const x = startX + col * colStep;
+      const y = startY + row * rowStep;
+      const candidate = {
+        x,
+        y,
+        w: TASK_CARD_W,
+        h: TASK_CARD_H,
+      };
+      if (options.avoidRect && nodeOverlapsRect(candidate, options.avoidRect)) continue;
+      if (y > innerBottom - TASK_CARD_H / 2) continue;
+      candidates.push(candidate);
+    }
+  }
+
+  nodes.forEach((node, index) => {
+    const candidate = candidates[index] || candidates[candidates.length - 1];
+    if (candidate) {
+      node.x = candidate.x;
+      node.y = candidate.y;
+    } else {
+      node.x = startX;
+      node.y = startY;
+    }
+    node.w = TASK_CARD_W;
+    node.h = TASK_CARD_H;
+    clampNodeToRegion(node, region, 0);
+  });
+}
+
 function resolveCollisions(nodes, bounds, avoidRect, center, minDist = TASK_MIN_CENTER_DIST) {
   const iterations = 84;
   for (let iter = 0; iter < iterations; iter++) {
@@ -1543,47 +1596,41 @@ function positionTasks(items) {
     y2: orbitBounds.bottom,
   };
 
-  const sideGap = 26;
-  const leftShoulderRight = scheduleBox.left - sideGap;
-  const rightShoulderLeft = scheduleBox.right + sideGap;
-  const topLaneBottom = Math.max(orbitBounds.top + 108, scheduleBox.top + 42);
-  const midLaneTop = scheduleBox.top + 118;
-  const midLaneBottom = Math.max(scheduleBox.bottom - 64, midLaneTop + 180);
-  const bottomLaneTop = scheduleBox.bottom + 38;
-  const bottomLaneBottom = orbitBounds.bottom;
-  const bottomLaneLeft = scheduleBox.left + 34;
-  const bottomLaneRight = scheduleBox.right - 34;
+  const band1Bottom = Math.max(orbitBounds.top + 112, scheduleBox.top + 30);
+  const band2Bottom = Math.max(band1Bottom + 104, centerY - 42);
+  const band3Bottom = Math.max(band2Bottom + 104, centerY + 68);
+  const band4Bottom = Math.max(band3Bottom + 104, scheduleBox.bottom + 44);
 
   const regions = {
     "Today": {
       x1: orbitBounds.left,
-      x2: leftShoulderRight,
-      y1: orbitBounds.top,
-      y2: topLaneBottom,
-    },
-    "Tomorrow": {
-      x1: rightShoulderLeft,
       x2: orbitBounds.right,
       y1: orbitBounds.top,
-      y2: topLaneBottom,
+      y2: band1Bottom,
+    },
+    "Tomorrow": {
+      x1: orbitBounds.left,
+      x2: orbitBounds.right,
+      y1: band1Bottom + 10,
+      y2: band2Bottom,
     },
     "End of the week": {
       x1: orbitBounds.left,
-      x2: leftShoulderRight,
-      y1: midLaneTop,
-      y2: midLaneBottom,
+      x2: orbitBounds.right,
+      y1: band2Bottom + 10,
+      y2: band3Bottom,
     },
     "Next month": {
-      x1: rightShoulderLeft,
+      x1: orbitBounds.left,
       x2: orbitBounds.right,
-      y1: midLaneTop,
-      y2: midLaneBottom,
+      y1: band3Bottom + 10,
+      y2: band4Bottom,
     },
     "Way out": {
-      x1: bottomLaneLeft,
-      x2: bottomLaneRight,
-      y1: bottomLaneTop,
-      y2: bottomLaneBottom,
+      x1: orbitBounds.left,
+      x2: orbitBounds.right,
+      y1: band4Bottom + 10,
+      y2: orbitBounds.bottom,
     },
   };
 
@@ -1645,33 +1692,18 @@ function positionTasks(items) {
       y: scheduleBox.top + scheduleBox.height / 2,
     };
 
-    const anchors = {
-      "Today": {
-        x: orbitBounds.left + (leftShoulderRight - orbitBounds.left) * 0.5,
-        y: orbitBounds.top + (topLaneBottom - orbitBounds.top) * 0.34,
-      },
-      "Tomorrow": {
-        x: rightShoulderLeft + (orbitBounds.right - rightShoulderLeft) * 0.5,
-        y: orbitBounds.top + (topLaneBottom - orbitBounds.top) * 0.34,
-      },
-      "End of the week": {
-        x: orbitBounds.left + (leftShoulderRight - orbitBounds.left) * 0.5,
-        y: midLaneTop + (midLaneBottom - midLaneTop) * 0.3,
-      },
-      "Next month": {
-        x: rightShoulderLeft + (orbitBounds.right - rightShoulderLeft) * 0.5,
-        y: midLaneTop + (midLaneBottom - midLaneTop) * 0.3,
-      },
-      "Way out": {
-        x: bottomLaneLeft + (bottomLaneRight - bottomLaneLeft) * 0.5,
-        y: bottomLaneTop + (bottomLaneBottom - bottomLaneTop) * 0.24,
-      },
+    const gridOptions = {
+      "Today": { cols: 8, gapX: 12, gapY: 14, avoidRect },
+      "Tomorrow": { cols: 8, gapX: 12, gapY: 14, avoidRect },
+      "End of the week": { cols: 8, gapX: 12, gapY: 14, avoidRect },
+      "Next month": { cols: 8, gapX: 12, gapY: 14, avoidRect },
+      "Way out": { cols: 8, gapX: 12, gapY: 14, avoidRect },
     };
 
     orderedTimeframes.forEach((timeframe) => {
       const regionNodes = nodes.filter((n) => n.timeframe === timeframe);
       if (!regionNodes.length) return;
-      seedNodesInRegion(regionNodes, regions[timeframe], anchors[timeframe]);
+      placeNodesInRegionGrid(regionNodes, regions[timeframe], gridOptions[timeframe]);
     });
 
     locked.forEach((node) => {

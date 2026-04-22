@@ -1636,7 +1636,7 @@ function positionTasks(items) {
   const gridOptions = {
     "Today": { cols: 2, gapX: 12, gapY: 14 },
     "Tomorrow": { cols: 2, gapX: 12, gapY: 14 },
-    "End of the week": { cols: 2, gapX: 12, gapY: 14 },
+    "End of the week": { cols: 3, gapX: 14, gapY: 16 },
     "Next month": { cols: 2, gapX: 12, gapY: 14 },
     "Way out": { cols: 2, gapX: 12, gapY: 14 },
   };
@@ -1644,8 +1644,9 @@ function positionTasks(items) {
   const regions = {};
   const stackGap = 14;
   const rowStep = TASK_CARD_H + 14;
-  const leftTimeframes = ["Today", "Tomorrow", "End of the week"];
+  const leftTimeframes = ["Today", "Tomorrow"];
   const rightTimeframes = ["Next month", "Way out"];
+  const bottomTimeframes = ["End of the week"];
 
   function assignStackedRegions(baseRegion, timeframes) {
     let cursorY = baseRegion.y1;
@@ -1680,6 +1681,14 @@ function positionTasks(items) {
 
   assignStackedRegions(leftRegionBase, leftTimeframes);
   assignStackedRegions(rightRegionBase, rightTimeframes);
+
+  const bottomRegionBase = {
+    x1: scheduleBox.left + 32,
+    x2: scheduleBox.right - 32,
+    y1: scheduleBox.bottom + 34,
+    y2: orbitBounds.bottom,
+  };
+  assignStackedRegions(bottomRegionBase, bottomTimeframes);
 
   const cards = [];
   const locked = [];

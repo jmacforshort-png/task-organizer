@@ -1543,45 +1543,47 @@ function positionTasks(items) {
     y2: orbitBounds.bottom,
   };
 
-  const topBandBottom = Math.max(orbitBounds.top + 104, scheduleBox.top - 20);
-  const midBandTop = scheduleBox.top + 72;
-  const midBandBottom = Math.max(scheduleBox.bottom - 110, midBandTop + 120);
-  const lowerBandTop = scheduleBox.bottom + 34;
-  const lowerBandBottom = Math.max(lowerBandTop + 116, orbitBounds.bottom - 124);
   const sideGap = 26;
   const leftShoulderRight = scheduleBox.left - sideGap;
   const rightShoulderLeft = scheduleBox.right + sideGap;
+  const topLaneBottom = Math.max(orbitBounds.top + 108, scheduleBox.top + 42);
+  const midLaneTop = scheduleBox.top + 118;
+  const midLaneBottom = Math.max(scheduleBox.bottom - 64, midLaneTop + 180);
+  const bottomLaneTop = scheduleBox.bottom + 38;
+  const bottomLaneBottom = orbitBounds.bottom;
+  const bottomLaneLeft = scheduleBox.left + 34;
+  const bottomLaneRight = scheduleBox.right - 34;
 
   const regions = {
     "Today": {
       x1: orbitBounds.left,
       x2: leftShoulderRight,
       y1: orbitBounds.top,
-      y2: topBandBottom,
+      y2: topLaneBottom,
     },
     "Tomorrow": {
       x1: rightShoulderLeft,
       x2: orbitBounds.right,
       y1: orbitBounds.top,
-      y2: topBandBottom,
+      y2: topLaneBottom,
     },
     "End of the week": {
       x1: orbitBounds.left,
       x2: leftShoulderRight,
-      y1: midBandTop,
-      y2: midBandBottom,
+      y1: midLaneTop,
+      y2: midLaneBottom,
     },
     "Next month": {
       x1: rightShoulderLeft,
       x2: orbitBounds.right,
-      y1: midBandTop,
-      y2: midBandBottom,
+      y1: midLaneTop,
+      y2: midLaneBottom,
     },
     "Way out": {
-      x1: orbitBounds.left + 34,
-      x2: orbitBounds.right - 34,
-      y1: lowerBandTop,
-      y2: orbitBounds.bottom,
+      x1: bottomLaneLeft,
+      x2: bottomLaneRight,
+      y1: bottomLaneTop,
+      y2: bottomLaneBottom,
     },
   };
 
@@ -1645,24 +1647,24 @@ function positionTasks(items) {
 
     const anchors = {
       "Today": {
-        x: orbitBounds.left + (leftShoulderRight - orbitBounds.left) * 0.48,
-        y: orbitBounds.top + (topBandBottom - orbitBounds.top) * 0.46,
+        x: orbitBounds.left + (leftShoulderRight - orbitBounds.left) * 0.5,
+        y: orbitBounds.top + (topLaneBottom - orbitBounds.top) * 0.34,
       },
       "Tomorrow": {
-        x: rightShoulderLeft + (orbitBounds.right - rightShoulderLeft) * 0.52,
-        y: orbitBounds.top + (topBandBottom - orbitBounds.top) * 0.46,
+        x: rightShoulderLeft + (orbitBounds.right - rightShoulderLeft) * 0.5,
+        y: orbitBounds.top + (topLaneBottom - orbitBounds.top) * 0.34,
       },
       "End of the week": {
-        x: orbitBounds.left + (leftShoulderRight - orbitBounds.left) * 0.56,
-        y: midBandTop + (midBandBottom - midBandTop) * 0.44,
+        x: orbitBounds.left + (leftShoulderRight - orbitBounds.left) * 0.5,
+        y: midLaneTop + (midLaneBottom - midLaneTop) * 0.3,
       },
       "Next month": {
-        x: rightShoulderLeft + (orbitBounds.right - rightShoulderLeft) * 0.48,
-        y: midBandTop + (midBandBottom - midBandTop) * 0.44,
+        x: rightShoulderLeft + (orbitBounds.right - rightShoulderLeft) * 0.5,
+        y: midLaneTop + (midLaneBottom - midLaneTop) * 0.3,
       },
       "Way out": {
-        x: orbitBounds.left + (orbitBounds.right - orbitBounds.left) * 0.5,
-        y: lowerBandTop + (orbitBounds.bottom - lowerBandTop) * 0.42,
+        x: bottomLaneLeft + (bottomLaneRight - bottomLaneLeft) * 0.5,
+        y: bottomLaneTop + (bottomLaneBottom - bottomLaneTop) * 0.24,
       },
     };
 

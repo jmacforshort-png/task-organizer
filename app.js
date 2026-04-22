@@ -1524,6 +1524,9 @@ function render() {
   positionTasks(items);
   empty.style.display = items.length === 0 ? "block" : "none";
   updateStats();
+}
+
+function renderSchedulePanels() {
   updateTimeProgressShading();
   renderNextUpPanel();
 }
@@ -2541,15 +2544,13 @@ renderDayDates();
 renderScheduleCompletion();
 renderBlockMeta();
 renderScheduleNotes();
-renderNextUpPanel();
-updateTimeProgressShading();
+renderSchedulePanels();
 render();
 renderStickyNotes();
 initSupabase();
 
 setInterval(() => {
   renderDayDates();
-  updateTimeProgressShading();
-  renderNextUpPanel();
+  renderSchedulePanels();
   enforceSyncAlertState();
 }, 60000);

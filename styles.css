@@ -279,10 +279,12 @@ body.performance-lite .card {
 
 .orbit {
   position: relative;
-  padding: 22px 22px 62px;
+  padding: 20px 18px 74px;
   min-height: 1584px;
-  border-radius: 22px;
-  background: radial-gradient(420px 300px at 50% 30%, rgba(255, 255, 255, 0.8), transparent 70%);
+  border-radius: 28px;
+  background:
+    radial-gradient(620px 360px at 50% 22%, rgba(255, 255, 255, 0.82), transparent 68%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.28));
   overflow: visible;
 }
 
@@ -395,16 +397,19 @@ body.performance-lite .card {
 .schedule {
   position: relative;
   z-index: 3;
-  max-width: 760px;
+  max-width: 800px;
   margin: 0 auto;
 }
 
 .schedule-card {
-  background: rgba(252, 253, 255, 0.98);
-  border-radius: 16px;
-  padding: 14px;
-  border: 1px solid rgba(203, 213, 225, 0.72);
-  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.96));
+  border-radius: 24px;
+  padding: 16px;
+  border: 1px solid rgba(186, 200, 220, 0.78);
+  box-shadow:
+    0 22px 52px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 body.performance-lite .schedule-card,
@@ -421,18 +426,18 @@ body.performance-lite .btn.primary {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 
 .weekend-toggle {
-  border: 1px solid rgba(148, 163, 184, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.38);
   border-radius: 999px;
-  background: #f8fafc;
+  background: rgba(248, 250, 252, 0.92);
   color: #334155;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 9px 12px;
   cursor: pointer;
 }
 
@@ -444,21 +449,21 @@ body.performance-lite .btn.primary {
 .schedule-header {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 7px;
+  gap: 10px;
 }
 
 .day-label {
   appearance: none;
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 10px;
-  padding: 4px 2px;
+  border-radius: 14px;
+  padding: 6px 2px 7px;
   width: 100%;
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   color: #334155;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   display: flex;
   flex-direction: column;
@@ -489,34 +494,36 @@ body.performance-lite .btn.primary {
   --minute: 1.86px;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 7px;
+  gap: 10px;
 }
 
 .day-col {
   position: relative;
   min-height: calc(555 * var(--minute));
-  background: rgba(248, 250, 252, 0.9);
-  border-radius: 12px;
-  padding: 6px;
-  border: 1px solid rgba(226, 232, 240, 0.95);
+  background:
+    linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(244, 248, 253, 0.92));
+  border-radius: 18px;
+  padding: 8px;
+  border: 1px solid rgba(219, 228, 239, 0.95);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 .slot {
   position: absolute;
-  left: 6px;
-  right: 6px;
+  left: 8px;
+  right: 8px;
   top: calc(var(--start) * var(--minute));
   height: calc((var(--end) - var(--start)) * var(--minute));
-  border-radius: 10px;
-  padding: 5px 7px;
+  border-radius: 14px;
+  padding: 8px 9px 7px;
   font-size: 11px;
   font-weight: 600;
   color: #1e293b;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(203, 213, 225, 0.85);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(191, 204, 220, 0.72);
   overflow: hidden;
   cursor: pointer;
-  transition: filter 180ms ease, opacity 180ms ease, transform 180ms ease;
+  transition: filter 180ms ease, opacity 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
 body.performance-lite .slot {
@@ -555,6 +562,22 @@ body.performance-lite .slot {
   background: rgba(255, 255, 255, 0.92);
   color: #8a2d0a;
   border: 1px solid rgba(251, 146, 60, 0.55);
+}
+
+.slot-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+}
+
+.slot-time {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(30, 41, 59, 0.76);
 }
 
 .slot-note-preview {
@@ -707,15 +730,16 @@ body.performance-lite .slot.has-note {
   pointer-events: auto;
   left: 0;
   top: 0;
-  width: 108px;
-  height: 74px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 12px;
-  padding: 7px 8px 7px 10px;
+  width: 120px;
+  min-height: 88px;
+  border: 1px solid rgba(214, 223, 235, 0.94);
+  border-radius: 16px;
+  padding: 10px 10px 9px 12px;
   background: rgba(255, 255, 255, 0.98);
   display: grid;
-  gap: 2px;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);
+  align-content: start;
+  gap: 7px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
   transform: translate3d(calc(var(--task-x, 0px) - 50%), calc(var(--task-y, 0px) - 50%), 0) scale(var(--task-scale, 1));
   cursor: grab;
   user-select: none;
@@ -739,7 +763,7 @@ body.performance-lite .slot.has-note {
   content: "";
   position: absolute;
   inset: 0 auto 0 0;
-  width: 6px;
+  width: 4px;
   background: var(--task-accent, var(--accent));
 }
 
@@ -750,8 +774,7 @@ body.performance-lite .slot.has-note {
 }
 
 .task-pill.done {
-  opacity: 0.6;
-  text-decoration: line-through;
+  opacity: 0.68;
 }
 
 body.task-motion-lite .task-pill {
@@ -767,36 +790,53 @@ body.task-motion-lite .task-pill {
 .task-pill[data-timeframe="Way out"] { --task-accent: #15803d; }
 
 
+.task-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.task-category {
+  max-width: 70px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(241, 245, 249, 0.96);
+  color: rgba(51, 65, 85, 0.92);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .task-title {
-  font-weight: 700;
-  font-size: 10px;
-  line-height: 1.1;
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 1.18;
+  letter-spacing: -0.01em;
 }
 
 .task-date {
-  position: absolute;
-  top: 4px;
-  right: 6px;
   font-size: 8px;
-  font-weight: 700;
-  opacity: 0.75;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: rgba(100, 116, 139, 0.88);
 }
 
 .task-done-date {
   font-size: 8px;
   font-weight: 700;
-  opacity: 0.85;
-}
-
-.task-meta {
-  font-size: 8px;
-  color: rgba(15, 23, 42, 0.7);
+  color: rgba(100, 116, 139, 0.88);
+  min-height: 10px;
 }
 
 .task-actions {
   display: flex;
-  gap: 4px;
-  margin-top: 1px;
+  gap: 6px;
+  margin-top: auto;
   flex-wrap: nowrap;
 }
 
@@ -814,13 +854,13 @@ body.task-motion-lite .task-pill {
 .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 .task-action-icon {
-  min-width: 18px;
-  min-height: 18px;
+  min-width: 20px;
+  min-height: 20px;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
 }
 

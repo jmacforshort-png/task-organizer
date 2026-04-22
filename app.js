@@ -117,8 +117,8 @@ const CATEGORY_COLOR_MAP = {
   Trips: "#3b82f6",
   Family: "#fb7185",
 };
-const TASK_CARD_W = 108;
-const TASK_CARD_H = 74;
+const TASK_CARD_W = 120;
+const TASK_CARD_H = 88;
 const TASK_LAYOUT_PADDING = 10;
 const TASK_MIN_GAP = 22;
 const TASK_MIN_CENTER_DIST = Math.max(TASK_CARD_W, TASK_CARD_H) + TASK_MIN_GAP;
@@ -931,6 +931,36 @@ function closeModalView() {
   syncGlobalOverlayState();
 }
 
+function enhanceScheduleSlotMarkup() {
+  document.querySelectorAll(".slot").forEach((slot) => {
+    if (slot.dataset.enhanced === "true") return;
+    const parts = slot.innerHTML
+      .split(/<br\s*\/?>/i)
+      .map((part) => part.replace(/<[^>]*>/g, "").trim())
+      .filter(Boolean);
+    if (!parts.length) return;
+
+    const title = parts[0] || "";
+    const time = parts.slice(1).join(" ");
+
+    slot.textContent = "";
+
+    const titleEl = document.createElement("span");
+    titleEl.className = "slot-title";
+    titleEl.textContent = title;
+    slot.appendChild(titleEl);
+
+    if (time) {
+      const timeEl = document.createElement("span");
+      timeEl.className = "slot-time";
+      timeEl.textContent = time;
+      slot.appendChild(timeEl);
+    }
+
+    slot.dataset.enhanced = "true";
+  });
+}
+
 function formatDate(ts) {
   if (!ts) return "";
   const d = new Date(ts);
@@ -1161,6 +1191,13 @@ function renderTaskCard(task, index) {
   card.dataset.priority = "Medium";
   card.dataset.taskId = task.id;
 
+  const top = document.createElement("div");
+  top.className = "task-top";
+
+  const category = document.createElement("div");
+  category.className = "task-category";
+  category.textContent = task.category || "General";
+
   const title = document.createElement("div");
   title.className = "task-title";
   title.textContent = task.title;
@@ -1169,13 +1206,12 @@ function renderTaskCard(task, index) {
   date.className = "task-date";
   date.textContent = formatDate(task.createdAt);
 
+  top.appendChild(category);
+  top.appendChild(date);
+
   const doneDate = document.createElement("div");
   doneDate.className = "task-done-date";
   doneDate.textContent = task.done && task.completedAt ? `Done ${formatDate(task.completedAt)}` : "";
-
-  const meta = document.createElement("div");
-  meta.className = "task-meta";
-  meta.textContent = task.category;
 
   const actions = document.createElement("div");
   actions.className = "task-actions";
@@ -1205,10 +1241,9 @@ function renderTaskCard(task, index) {
   actions.appendChild(editBtn);
   actions.appendChild(deleteBtn);
 
+  card.appendChild(top);
   card.appendChild(title);
-  card.appendChild(date);
   card.appendChild(doneDate);
-  card.appendChild(meta);
   card.appendChild(actions);
 
   card.style.setProperty("--task-scale", 1);
@@ -1508,36 +1543,41 @@ function positionTasks(items) {
     y2: orbitBounds.bottom,
   };
 
+  const topBandBottom = Math.max(orbitBounds.top + 120, scheduleBox.top - 28);
+  const highBandBottom = Math.max(topBandBottom + 96, centerY - 24);
+  const middleBandBottom = Math.max(highBandBottom + 96, scheduleBox.bottom + 32);
+  const lowBandBottom = Math.max(middleBandBottom + 110, orbitBounds.bottom - 140);
+
   const regions = {
     "Today": {
-      x1: leftRegion.x1,
-      x2: leftRegion.x2,
-      y1: leftRegion.y1,
-      y2: centerY - margin,
+      x1: orbitBounds.left,
+      x2: orbitBounds.right,
+      y1: orbitBounds.top,
+      y2: topBandBottom,
     },
     "Tomorrow": {
-      x1: leftRegion.x1,
-      x2: leftRegion.x2,
-      y1: centerY + margin,
-      y2: leftRegion.y2,
+      x1: orbitBounds.left,
+      x2: orbitBounds.right,
+      y1: topBandBottom + 8,
+      y2: highBandBottom,
     },
     "End of the week": {
-      x1: bottomRegion.x1,
-      x2: bottomRegion.x2,
-      y1: bottomRegion.y1,
-      y2: bottomRegion.y2,
+      x1: orbitBounds.left,
+      x2: orbitBounds.right,
+      y1: highBandBottom + 8,
+      y2: middleBandBottom,
     },
     "Next month": {
-      x1: rightRegion.x1,
-      x2: rightRegion.x2,
-      y1: centerY + margin,
-      y2: rightRegion.y2,
+      x1: orbitBounds.left,
+      x2: orbitBounds.right,
+      y1: middleBandBottom + 8,
+      y2: lowBandBottom,
     },
     "Way out": {
-      x1: rightRegion.x1,
-      x2: rightRegion.x2,
-      y1: rightRegion.y1,
-      y2: centerY - margin,
+      x1: orbitBounds.left,
+      x2: orbitBounds.right,
+      y1: lowBandBottom + 8,
+      y2: orbitBounds.bottom,
     },
   };
 
@@ -1601,24 +1641,24 @@ function positionTasks(items) {
 
     const anchors = {
       "Today": {
-        x: leftRegion.x1 + (leftRegion.x2 - leftRegion.x1) * 0.32,
-        y: leftRegion.y1 + (centerY - leftRegion.y1) * 0.24,
+        x: orbitBounds.left + (orbitBounds.right - orbitBounds.left) * 0.26,
+        y: orbitBounds.top + (topBandBottom - orbitBounds.top) * 0.5,
       },
       "Tomorrow": {
-        x: leftRegion.x1 + (leftRegion.x2 - leftRegion.x1) * 0.36,
-        y: centerY + (leftRegion.y2 - centerY) * 0.7,
+        x: orbitBounds.right - (orbitBounds.right - orbitBounds.left) * 0.24,
+        y: topBandBottom + (highBandBottom - topBandBottom) * 0.5,
       },
       "End of the week": {
-        x: (bottomRegion.x1 + bottomRegion.x2) / 2,
-        y: bottomRegion.y1 + (bottomRegion.y2 - bottomRegion.y1) * 0.6,
+        x: orbitBounds.left + (orbitBounds.right - orbitBounds.left) * 0.24,
+        y: highBandBottom + (middleBandBottom - highBandBottom) * 0.46,
       },
       "Next month": {
-        x: rightRegion.x1 + (rightRegion.x2 - rightRegion.x1) * 0.64,
-        y: centerY + (rightRegion.y2 - centerY) * 0.7,
+        x: orbitBounds.right - (orbitBounds.right - orbitBounds.left) * 0.24,
+        y: middleBandBottom + (lowBandBottom - middleBandBottom) * 0.48,
       },
       "Way out": {
-        x: rightRegion.x1 + (rightRegion.x2 - rightRegion.x1) * 0.68,
-        y: rightRegion.y1 + (centerY - rightRegion.y1) * 0.24,
+        x: orbitBounds.left + (orbitBounds.right - orbitBounds.left) * 0.5,
+        y: lowBandBottom + (orbitBounds.bottom - lowBandBottom) * 0.44,
       },
     };
 
@@ -2663,6 +2703,7 @@ hideWeekendBtn.addEventListener("click", hideWeekendPlanner);
 bindScheduleToggle();
 bindDayHeaderEditors();
 recoverMissingTasksFromBackup();
+enhanceScheduleSlotMarkup();
 renderDayDates();
 renderScheduleCompletion();
 renderBlockMeta();

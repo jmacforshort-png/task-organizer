@@ -1212,6 +1212,21 @@ function clampValue(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function setTaskCardPosition(card, x, y) {
+  if (!card) return;
+  card.dataset.x = String(x);
+  card.dataset.y = String(y);
+  card.style.setProperty("--task-x", `${x}px`);
+  card.style.setProperty("--task-y", `${y}px`);
+}
+
+function getTaskCardPosition(card) {
+  return {
+    x: Number(card?.dataset.x || 0),
+    y: Number(card?.dataset.y || 0),
+  };
+}
+
 function clampNodeToBounds(node, bounds, padding = TASK_LAYOUT_PADDING) {
   node.x = clampValue(node.x, bounds.left + node.w / 2 + padding, bounds.right - node.w / 2 - padding);
   node.y = clampValue(node.y, bounds.top + node.h / 2 + padding, bounds.bottom - node.h / 2 - padding);
@@ -1513,8 +1528,7 @@ function positionTasks(items) {
     });
 
     [...nodes, ...locked].forEach((node) => {
-      node.card.style.left = `${node.x}px`;
-      node.card.style.top = `${node.y}px`;
+      setTaskCardPosition(node.card, node.x, node.y);
     });
   });
 }
@@ -1665,8 +1679,7 @@ function handleMouseMove(e) {
   const pad = 28;
   const clampedX = Math.min(orbitRect.width - pad, Math.max(pad, x));
   const clampedY = Math.min(orbitRect.height - pad, Math.max(pad, y));
-  dragTarget.style.left = `${clampedX}px`;
-  dragTarget.style.top = `${clampedY}px`;
+  setTaskCardPosition(dragTarget, clampedX, clampedY);
 }
 
 function handleMouseUp() {
@@ -1679,8 +1692,7 @@ function handleMouseUp() {
     right: scheduleRect.left - orbitRect.left + scheduleRect.width + 10,
     bottom: scheduleRect.top - orbitRect.top + scheduleRect.height + 10,
   };
-  const x = parseFloat(dragTarget.style.left);
-  const y = parseFloat(dragTarget.style.top);
+  const { x, y } = getTaskCardPosition(dragTarget);
   const left = x - dragTarget.offsetWidth / 2;
   const right = x + dragTarget.offsetWidth / 2;
   const top = y - dragTarget.offsetHeight / 2;
@@ -1699,12 +1711,10 @@ function handleMouseUp() {
     const dy = y - center.y;
     const dist = Math.hypot(dx, dy) || 1;
     const push = 40;
-    dragTarget.style.left = `${x + (dx / dist) * push}px`;
-    dragTarget.style.top = `${y + (dy / dist) * push}px`;
+    setTaskCardPosition(dragTarget, x + (dx / dist) * push, y + (dy / dist) * push);
   }
   const id = dragTarget.dataset.taskId;
-  const finalX = parseFloat(dragTarget.style.left);
-  const finalY = parseFloat(dragTarget.style.top);
+  const { x: finalX, y: finalY } = getTaskCardPosition(dragTarget);
   lockTaskPosition(id, finalX, finalY);
   dragTarget.classList.remove("dragging");
   dragTarget = null;

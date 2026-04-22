@@ -657,6 +657,8 @@ h1 {
   position: absolute;
   overflow: hidden;
   pointer-events: auto;
+  left: 0;
+  top: 0;
   width: 108px;
   height: 74px;
   border: 1px solid rgba(226, 232, 240, 0.9);
@@ -665,10 +667,12 @@ h1 {
   background: rgba(255, 255, 255, 0.98);
   display: grid;
   gap: 2px;
-  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.06);
-  transform: translate(-50%, -50%) scale(var(--task-scale, 1));
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);
+  transform: translate3d(calc(var(--task-x, 0px) - 50%), calc(var(--task-y, 0px) - 50%), 0) scale(var(--task-scale, 1));
   cursor: grab;
   user-select: none;
+  contain: layout paint style;
+  will-change: transform;
 }
 
 .task-pill.task-enter {
@@ -700,6 +704,12 @@ h1 {
 .task-pill.done {
   opacity: 0.6;
   text-decoration: line-through;
+}
+
+body.task-motion-lite .task-pill {
+  box-shadow: none;
+  border-color: rgba(203, 213, 225, 0.9);
+  will-change: auto;
 }
 
 .task-pill[data-timeframe="Today"] { --task-accent: #ef4444; }

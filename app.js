@@ -117,8 +117,8 @@ const CATEGORY_COLOR_MAP = {
   Trips: "#3b82f6",
   Family: "#fb7185",
 };
-const TASK_CARD_W = 120;
-const TASK_CARD_H = 88;
+const TASK_CARD_W = 112;
+const TASK_CARD_H = 82;
 const TASK_LAYOUT_PADDING = 10;
 const TASK_MIN_GAP = 22;
 const TASK_MIN_CENTER_DIST = Math.max(TASK_CARD_W, TASK_CARD_H) + TASK_MIN_GAP;
@@ -1543,40 +1543,44 @@ function positionTasks(items) {
     y2: orbitBounds.bottom,
   };
 
-  const topBandBottom = Math.max(orbitBounds.top + 120, scheduleBox.top - 28);
-  const highBandBottom = Math.max(topBandBottom + 96, centerY - 24);
-  const middleBandBottom = Math.max(highBandBottom + 96, scheduleBox.bottom + 32);
-  const lowBandBottom = Math.max(middleBandBottom + 110, orbitBounds.bottom - 140);
+  const topBandBottom = Math.max(orbitBounds.top + 104, scheduleBox.top - 20);
+  const midBandTop = scheduleBox.top + 72;
+  const midBandBottom = Math.max(scheduleBox.bottom - 110, midBandTop + 120);
+  const lowerBandTop = scheduleBox.bottom + 34;
+  const lowerBandBottom = Math.max(lowerBandTop + 116, orbitBounds.bottom - 124);
+  const sideGap = 26;
+  const leftShoulderRight = scheduleBox.left - sideGap;
+  const rightShoulderLeft = scheduleBox.right + sideGap;
 
   const regions = {
     "Today": {
       x1: orbitBounds.left,
-      x2: orbitBounds.right,
+      x2: leftShoulderRight,
       y1: orbitBounds.top,
       y2: topBandBottom,
     },
     "Tomorrow": {
-      x1: orbitBounds.left,
+      x1: rightShoulderLeft,
       x2: orbitBounds.right,
-      y1: topBandBottom + 8,
-      y2: highBandBottom,
+      y1: orbitBounds.top,
+      y2: topBandBottom,
     },
     "End of the week": {
       x1: orbitBounds.left,
-      x2: orbitBounds.right,
-      y1: highBandBottom + 8,
-      y2: middleBandBottom,
+      x2: leftShoulderRight,
+      y1: midBandTop,
+      y2: midBandBottom,
     },
     "Next month": {
-      x1: orbitBounds.left,
+      x1: rightShoulderLeft,
       x2: orbitBounds.right,
-      y1: middleBandBottom + 8,
-      y2: lowBandBottom,
+      y1: midBandTop,
+      y2: midBandBottom,
     },
     "Way out": {
-      x1: orbitBounds.left,
-      x2: orbitBounds.right,
-      y1: lowBandBottom + 8,
+      x1: orbitBounds.left + 34,
+      x2: orbitBounds.right - 34,
+      y1: lowerBandTop,
       y2: orbitBounds.bottom,
     },
   };
@@ -1641,24 +1645,24 @@ function positionTasks(items) {
 
     const anchors = {
       "Today": {
-        x: orbitBounds.left + (orbitBounds.right - orbitBounds.left) * 0.26,
-        y: orbitBounds.top + (topBandBottom - orbitBounds.top) * 0.5,
+        x: orbitBounds.left + (leftShoulderRight - orbitBounds.left) * 0.48,
+        y: orbitBounds.top + (topBandBottom - orbitBounds.top) * 0.46,
       },
       "Tomorrow": {
-        x: orbitBounds.right - (orbitBounds.right - orbitBounds.left) * 0.24,
-        y: topBandBottom + (highBandBottom - topBandBottom) * 0.5,
+        x: rightShoulderLeft + (orbitBounds.right - rightShoulderLeft) * 0.52,
+        y: orbitBounds.top + (topBandBottom - orbitBounds.top) * 0.46,
       },
       "End of the week": {
-        x: orbitBounds.left + (orbitBounds.right - orbitBounds.left) * 0.24,
-        y: highBandBottom + (middleBandBottom - highBandBottom) * 0.46,
+        x: orbitBounds.left + (leftShoulderRight - orbitBounds.left) * 0.56,
+        y: midBandTop + (midBandBottom - midBandTop) * 0.44,
       },
       "Next month": {
-        x: orbitBounds.right - (orbitBounds.right - orbitBounds.left) * 0.24,
-        y: middleBandBottom + (lowBandBottom - middleBandBottom) * 0.48,
+        x: rightShoulderLeft + (orbitBounds.right - rightShoulderLeft) * 0.48,
+        y: midBandTop + (midBandBottom - midBandTop) * 0.44,
       },
       "Way out": {
         x: orbitBounds.left + (orbitBounds.right - orbitBounds.left) * 0.5,
-        y: lowBandBottom + (orbitBounds.bottom - lowBandBottom) * 0.44,
+        y: lowerBandTop + (orbitBounds.bottom - lowerBandTop) * 0.42,
       },
     };
 

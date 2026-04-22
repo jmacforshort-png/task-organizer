@@ -1633,6 +1633,14 @@ function positionTasks(items) {
     y2: orbitBounds.bottom,
   };
 
+  const orderedTimeframes = [
+    "Today",
+    "Tomorrow",
+    "End of the week",
+    "Next month",
+    "Way out",
+  ];
+
   const gridOptions = {
     "Today": { cols: 8, gapX: 12, gapY: 14, avoidRect },
     "Tomorrow": { cols: 8, gapX: 12, gapY: 14, avoidRect },
@@ -1672,14 +1680,6 @@ function positionTasks(items) {
     regions[timeframe] = region;
     cursorY = Math.min(orbitBounds.bottom, region.y2 + bandGap);
   });
-
-  const orderedTimeframes = [
-    "Today",
-    "Tomorrow",
-    "End of the week",
-    "Next month",
-    "Way out",
-  ];
 
   const cards = [];
   const locked = [];

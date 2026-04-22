@@ -171,6 +171,7 @@ let noteAutosaveTimer = null;
 let lastTaskRenderSignature = "";
 let lastTaskLayoutWidth = 0;
 let lastTaskLayoutHeight = 0;
+let performanceLiteMode = lowPowerTaskMode;
 
 function enforceSyncAlertState() {
   const connected = /Connected/i.test(cloudStatus.textContent || "");
@@ -178,8 +179,37 @@ function enforceSyncAlertState() {
 }
 
 function updateTaskVisualMode() {
-  const shouldUseLiteMode = lowPowerTaskMode || tasks.length >= 10;
+  const shouldUseLiteMode = performanceLiteMode || tasks.length >= 10;
   document.body.classList.toggle("task-motion-lite", shouldUseLiteMode);
+  document.body.classList.toggle("performance-lite", shouldUseLiteMode);
+}
+
+function sampleRuntimePerformance() {
+  if (performanceLiteMode) {
+    updateTaskVisualMode();
+    return;
+  }
+  const samples = [];
+  let last = performance.now();
+  let remaining = 18;
+
+  function sampleFrame(now) {
+    samples.push(now - last);
+    last = now;
+    remaining -= 1;
+    if (remaining > 0) {
+      requestAnimationFrame(sampleFrame);
+      return;
+    }
+    const avg = samples.reduce((sum, value) => sum + value, 0) / samples.length;
+    const worst = Math.max(...samples);
+    if (avg > 22 || worst > 40) {
+      performanceLiteMode = true;
+    }
+    updateTaskVisualMode();
+  }
+
+  requestAnimationFrame(sampleFrame);
 }
 
 function loadTasks() {
@@ -2558,6 +2588,7 @@ renderSchedulePanels();
 render();
 renderStickyNotes();
 initSupabase();
+sampleRuntimePerformance();
 
 setInterval(() => {
   renderDayDates();

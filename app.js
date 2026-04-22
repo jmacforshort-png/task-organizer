@@ -1481,6 +1481,43 @@ function placeNodesInRegionGrid(nodes, region, options = {}) {
   });
 }
 
+function countAvailableGridSlots(region, options = {}) {
+  const innerLeft = region.x1 + TASK_LAYOUT_PADDING;
+  const innerRight = region.x2 - TASK_LAYOUT_PADDING;
+  const innerTop = region.y1 + TASK_LAYOUT_PADDING;
+  const innerBottom = region.y2 - TASK_LAYOUT_PADDING;
+  if (innerRight <= innerLeft || innerBottom <= innerTop) return 0;
+
+  const requestedCols = Math.max(1, Number(options.cols || 1));
+  const gapX = Number(options.gapX || TASK_MIN_GAP * 0.55);
+  const gapY = Number(options.gapY || TASK_MIN_GAP * 0.7);
+  const availableWidth = innerRight - innerLeft;
+  const maxCols = Math.max(1, Math.floor((availableWidth + gapX) / (TASK_CARD_W + gapX)));
+  const cols = Math.max(1, Math.min(requestedCols, maxCols));
+  const colStep = TASK_CARD_W + gapX;
+  const rowStep = TASK_CARD_H + gapY;
+  const gridWidth = cols * TASK_CARD_W + (cols - 1) * gapX;
+  const startX = innerLeft + Math.max(0, (availableWidth - gridWidth) / 2) + TASK_CARD_W / 2;
+  const startY = innerTop + TASK_CARD_H / 2;
+  const maxRows = Math.max(1, Math.floor((innerBottom - innerTop + gapY) / rowStep));
+
+  let count = 0;
+  for (let row = 0; row < maxRows + 6; row++) {
+    for (let col = 0; col < cols; col++) {
+      const candidate = {
+        x: startX + col * colStep,
+        y: startY + row * rowStep,
+        w: TASK_CARD_W,
+        h: TASK_CARD_H,
+      };
+      if (candidate.y > innerBottom - TASK_CARD_H / 2) continue;
+      if (options.avoidRect && nodeOverlapsRect(candidate, options.avoidRect)) continue;
+      count += 1;
+    }
+  }
+  return count;
+}
+
 function resolveCollisions(nodes, bounds, avoidRect, center, minDist = TASK_MIN_CENTER_DIST) {
   const iterations = 84;
   for (let iter = 0; iter < iterations; iter++) {
@@ -1596,43 +1633,45 @@ function positionTasks(items) {
     y2: orbitBounds.bottom,
   };
 
-  const band1Bottom = Math.max(orbitBounds.top + 112, scheduleBox.top + 30);
-  const band2Bottom = Math.max(band1Bottom + 104, centerY - 42);
-  const band3Bottom = Math.max(band2Bottom + 104, centerY + 68);
-  const band4Bottom = Math.max(band3Bottom + 104, scheduleBox.bottom + 44);
-
-  const regions = {
-    "Today": {
-      x1: orbitBounds.left,
-      x2: orbitBounds.right,
-      y1: orbitBounds.top,
-      y2: band1Bottom,
-    },
-    "Tomorrow": {
-      x1: orbitBounds.left,
-      x2: orbitBounds.right,
-      y1: band1Bottom + 10,
-      y2: band2Bottom,
-    },
-    "End of the week": {
-      x1: orbitBounds.left,
-      x2: orbitBounds.right,
-      y1: band2Bottom + 10,
-      y2: band3Bottom,
-    },
-    "Next month": {
-      x1: orbitBounds.left,
-      x2: orbitBounds.right,
-      y1: band3Bottom + 10,
-      y2: band4Bottom,
-    },
-    "Way out": {
-      x1: orbitBounds.left,
-      x2: orbitBounds.right,
-      y1: band4Bottom + 10,
-      y2: orbitBounds.bottom,
-    },
+  const gridOptions = {
+    "Today": { cols: 8, gapX: 12, gapY: 14, avoidRect },
+    "Tomorrow": { cols: 8, gapX: 12, gapY: 14, avoidRect },
+    "End of the week": { cols: 8, gapX: 12, gapY: 14, avoidRect },
+    "Next month": { cols: 8, gapX: 12, gapY: 14, avoidRect },
+    "Way out": { cols: 8, gapX: 12, gapY: 14, avoidRect },
   };
+
+  const regions = {};
+  const bandGap = 12;
+  const rowStep = TASK_CARD_H + 14;
+  let cursorY = orbitBounds.top;
+  orderedTimeframes.forEach((timeframe, index) => {
+    const taskCount = (groups[timeframe] || []).length;
+    const remainingTimeframes = orderedTimeframes.length - index;
+    const maxBandBottom = orbitBounds.bottom - bandGap * Math.max(0, remainingTimeframes - 1);
+    let bandHeight = TASK_CARD_H + TASK_LAYOUT_PADDING * 2 + 10;
+    let region = {
+      x1: orbitBounds.left,
+      x2: orbitBounds.right,
+      y1: cursorY,
+      y2: Math.min(maxBandBottom, cursorY + bandHeight),
+    };
+    while (
+      taskCount > 0 &&
+      countAvailableGridSlots(region, gridOptions[timeframe]) < taskCount &&
+      region.y2 < maxBandBottom
+    ) {
+      bandHeight += rowStep;
+      region = {
+        x1: orbitBounds.left,
+        x2: orbitBounds.right,
+        y1: cursorY,
+        y2: Math.min(maxBandBottom, cursorY + bandHeight),
+      };
+    }
+    regions[timeframe] = region;
+    cursorY = Math.min(orbitBounds.bottom, region.y2 + bandGap);
+  });
 
   const orderedTimeframes = [
     "Today",
@@ -1690,14 +1729,6 @@ function positionTasks(items) {
     const center = {
       x: scheduleBox.left + scheduleBox.width / 2,
       y: scheduleBox.top + scheduleBox.height / 2,
-    };
-
-    const gridOptions = {
-      "Today": { cols: 8, gapX: 12, gapY: 14, avoidRect },
-      "Tomorrow": { cols: 8, gapX: 12, gapY: 14, avoidRect },
-      "End of the week": { cols: 8, gapX: 12, gapY: 14, avoidRect },
-      "Next month": { cols: 8, gapX: 12, gapY: 14, avoidRect },
-      "Way out": { cols: 8, gapX: 12, gapY: 14, avoidRect },
     };
 
     orderedTimeframes.forEach((timeframe) => {

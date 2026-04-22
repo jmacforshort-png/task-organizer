@@ -41,6 +41,10 @@ body.locked {
   overflow: hidden;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 body.locked .app {
   filter: blur(2px) saturate(0.8);
   pointer-events: none;
@@ -916,6 +920,8 @@ body.task-motion-lite .task-pill {
   align-items: center;
   justify-content: center;
   padding: 18px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal.show { display: flex; }

@@ -120,7 +120,8 @@ const CATEGORY_COLOR_MAP = {
 const TASK_CARD_W = 108;
 const TASK_CARD_H = 74;
 const TASK_LAYOUT_PADDING = 10;
-const TASK_COLS_PER_ROW = 3;
+const TASK_MIN_GAP = 22;
+const TASK_MIN_CENTER_DIST = Math.max(TASK_CARD_W, TASK_CARD_H) + TASK_MIN_GAP;
 const TASK_ROW_GAP = 12;
 const TASK_COL_GAP = 8;
 const TASK_LANE_PADDING = 10;
@@ -176,6 +177,11 @@ let performanceLiteMode = lowPowerTaskMode;
 function enforceSyncAlertState() {
   const connected = /Connected/i.test(cloudStatus.textContent || "");
   if (connected) syncAlert.hidden = true;
+}
+
+function syncGlobalOverlayState() {
+  const anyOverlayOpen = document.querySelector(".modal.show, .auth-modal.show");
+  document.body.classList.toggle("modal-open", Boolean(anyOverlayOpen));
 }
 
 function updateTaskVisualMode() {
@@ -452,6 +458,7 @@ function lockApp() {
   authModal.setAttribute("aria-hidden", "false");
   authPassword.value = "";
   authError.textContent = "";
+  syncGlobalOverlayState();
   setTimeout(() => authPassword.focus(), 0);
 }
 
@@ -460,6 +467,7 @@ function unlockApp() {
   authModal.classList.remove("show");
   authModal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("locked");
+  syncGlobalOverlayState();
 }
 
 function isSupabaseConfigured() {
@@ -475,12 +483,14 @@ function openCloudModal() {
   cloudFeedback.textContent = "";
   cloudModal.classList.add("show");
   cloudModal.setAttribute("aria-hidden", "false");
+  syncGlobalOverlayState();
   cloudEmail.focus();
 }
 
 function closeCloudModal() {
   cloudModal.classList.remove("show");
   cloudModal.setAttribute("aria-hidden", "true");
+  syncGlobalOverlayState();
 }
 
 function updateCloudStatus(text) {
@@ -845,6 +855,7 @@ function scheduleCloudSave() {
 function openStickyModal(note = null) {
   stickyModal.classList.add("show");
   stickyModal.setAttribute("aria-hidden", "false");
+  syncGlobalOverlayState();
   if (note) {
     stickyModalTitle.textContent = "Edit Sticky Note";
     stickyIdField.value = note.id;
@@ -861,6 +872,7 @@ function openStickyModal(note = null) {
 function closeStickyModal() {
   stickyModal.classList.remove("show");
   stickyModal.setAttribute("aria-hidden", "true");
+  syncGlobalOverlayState();
 }
 
 function filteredTasks() {
@@ -893,6 +905,7 @@ function updateStats() {
 function openModalView(task = null) {
   modal.classList.add("show");
   modal.setAttribute("aria-hidden", "false");
+  syncGlobalOverlayState();
 
   if (task) {
     modalTitle.textContent = "Edit Task";
@@ -915,6 +928,7 @@ function openModalView(task = null) {
 function closeModalView() {
   modal.classList.remove("show");
   modal.setAttribute("aria-hidden", "true");
+  syncGlobalOverlayState();
 }
 
 function formatDate(ts) {
@@ -1079,6 +1093,7 @@ function openNoteModal(slot) {
   renderBlockTaskEditor(id);
   noteModal.classList.add("show");
   noteModal.setAttribute("aria-hidden", "false");
+  syncGlobalOverlayState();
   noteModal.querySelector("h2").textContent = label;
   blockTaskInput.focus();
 }
@@ -1111,6 +1126,7 @@ function closeNoteModalView() {
   }
   noteModal.classList.remove("show");
   noteModal.setAttribute("aria-hidden", "true");
+  syncGlobalOverlayState();
   noteSlotId.value = "";
   noteText.value = "";
   noteTitle.value = "";
@@ -1126,11 +1142,13 @@ function openNoteViewModal(slotId) {
   noteViewBody.textContent = noteData.text || "";
   noteViewModal.classList.add("show");
   noteViewModal.setAttribute("aria-hidden", "false");
+  syncGlobalOverlayState();
 }
 
 function closeNoteViewModal() {
   noteViewModal.classList.remove("show");
   noteViewModal.setAttribute("aria-hidden", "true");
+  syncGlobalOverlayState();
   noteViewSlotId = "";
 }
 
@@ -1315,70 +1333,108 @@ function pushNodeOutOfRect(node, rect, padding = 0, center = null) {
   node.y += moves[0].y;
 }
 
-function computeLaneGeometry(region) {
-  const innerW = Math.max(0, region.x2 - region.x1 - TASK_LANE_PADDING * 2);
-  const innerH = Math.max(0, region.y2 - region.y1 - TASK_LANE_PADDING * 2);
-  const maxCols = Math.max(1, Math.floor((innerW + TASK_COL_GAP) / (TASK_CARD_W + TASK_COL_GAP)));
-  const cols = Math.max(1, Math.min(TASK_COLS_PER_ROW, maxCols));
-  const rowStep = TASK_CARD_H + TASK_ROW_GAP;
-  const colStep = TASK_CARD_W + TASK_COL_GAP;
-  const gridW = cols * TASK_CARD_W + (cols - 1) * TASK_COL_GAP;
-  const startX = region.x1 + TASK_LANE_PADDING + TASK_CARD_W / 2 + Math.max(0, (innerW - gridW) / 2);
-  const startY = region.y1 + TASK_LANE_PADDING + TASK_CARD_H / 2;
-  const maxVisibleRows = Math.max(1, Math.floor((innerH + TASK_ROW_GAP) / rowStep));
-  return { cols, rowStep, colStep, startX, startY, maxVisibleRows };
-}
+function buildRegionCandidates(region, anchor, stepX, stepY) {
+  const minX = region.x1 + TASK_CARD_W / 2 + TASK_LAYOUT_PADDING;
+  const maxX = region.x2 - TASK_CARD_W / 2 - TASK_LAYOUT_PADDING;
+  const minY = region.y1 + TASK_CARD_H / 2 + TASK_LAYOUT_PADDING;
+  const maxY = region.y2 - TASK_CARD_H / 2 - TASK_LAYOUT_PADDING;
+  if (maxX < minX || maxY < minY) return [];
 
-function slotOverlapsOccupied(slot, occupied) {
-  return occupied.some((node) => {
-    const dx = Math.abs(slot.x - node.x);
-    const dy = Math.abs(slot.y - node.y);
-    return dx < (TASK_CARD_W + TASK_COL_GAP * 0.7) && dy < (TASK_CARD_H + TASK_ROW_GAP * 0.7);
-  });
-}
+  const cols = Math.max(1, Math.floor((maxX - minX) / stepX) + 1);
+  const rows = Math.max(1, Math.floor((maxY - minY) / stepY) + 1);
+  const totalW = (cols - 1) * stepX;
+  const totalH = (rows - 1) * stepY;
+  const startX = minX + Math.max(0, (maxX - minX - totalW) / 2);
+  const startY = minY + Math.max(0, (maxY - minY - totalH) / 2);
 
-function placeNodesInLaneRows(nodes, region, bounds, avoidRect, occupied = []) {
-  if (!nodes.length) return;
-  const lane = computeLaneGeometry(region);
-  const slots = [];
-  const targetCount = nodes.length + occupied.length + lane.cols * 2;
-  let row = 0;
-  while (slots.length < targetCount) {
-    for (let col = 0; col < lane.cols; col++) {
-      const slot = {
-        x: lane.startX + col * lane.colStep,
-        y: lane.startY + row * lane.rowStep,
-      };
-      if (slot.y > region.y2 - TASK_CARD_H / 2) break;
-      slots.push(slot);
+  const points = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      points.push({ x: startX + c * stepX, y: startY + r * stepY });
     }
-    row += 1;
-    if (row > 200) break;
   }
 
-  let slotIndex = 0;
-  nodes.forEach((node) => {
-    while (slotIndex < slots.length && slotOverlapsOccupied(slots[slotIndex], occupied)) {
-      slotIndex += 1;
+  points.sort((a, b) => {
+    const da = Math.hypot(a.x - anchor.x, a.y - anchor.y);
+    const db = Math.hypot(b.x - anchor.x, b.y - anchor.y);
+    if (da !== db) return da - db;
+    if (a.y !== b.y) return a.y - b.y;
+    return a.x - b.x;
+  });
+
+  return points;
+}
+
+function seedNodesInRegion(nodes, region, anchor) {
+  if (!nodes.length) return;
+  const stepX = TASK_CARD_W + TASK_MIN_GAP;
+  const stepY = TASK_CARD_H + TASK_MIN_GAP;
+  const candidates = buildRegionCandidates(region, anchor, stepX, stepY);
+  const clampedAnchor = {
+    x: clampValue(anchor.x, region.x1 + TASK_CARD_W / 2, region.x2 - TASK_CARD_W / 2),
+    y: clampValue(anchor.y, region.y1 + TASK_CARD_H / 2, region.y2 - TASK_CARD_H / 2),
+  };
+
+  nodes.forEach((node, index) => {
+    const candidate = candidates[index];
+    if (candidate) {
+      node.x = candidate.x;
+      node.y = candidate.y;
+    } else {
+      const overflow = index - candidates.length;
+      const col = overflow % 3;
+      const row = Math.floor(overflow / 3);
+      node.x = clampedAnchor.x + (col - 1) * (stepX * 0.35);
+      node.y = clampedAnchor.y + (row + 1) * (stepY * 0.35);
     }
-    const chosen = slots[Math.min(slotIndex, slots.length - 1)] || {
-      x: lane.startX,
-      y: lane.startY,
-    };
-    node.x = chosen.x;
-    node.y = chosen.y;
     node.w = TASK_CARD_W;
     node.h = TASK_CARD_H;
     clampNodeToRegion(node, region, 0);
-    clampNodeToBounds(node, bounds, 0);
-    if (avoidRect) {
-      pushNodeOutOfRect(node, avoidRect, 2);
-      clampNodeToRegion(node, region, 0);
-      clampNodeToBounds(node, bounds, 0);
-    }
-    occupied.push({ x: node.x, y: node.y });
-    slotIndex += 1;
   });
+}
+
+function resolveCollisions(nodes, bounds, avoidRect, center, minDist = TASK_MIN_CENTER_DIST) {
+  const iterations = 84;
+  for (let iter = 0; iter < iterations; iter++) {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i];
+        const b = nodes[j];
+        if (a.fixed && b.fixed) continue;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy) || 0.0001;
+        if (dist >= minDist) continue;
+        const ux = dx / dist;
+        const uy = dy / dist;
+        const push = minDist - dist + 0.05;
+        if (a.fixed) {
+          b.x += ux * push;
+          b.y += uy * push;
+        } else if (b.fixed) {
+          a.x -= ux * push;
+          a.y -= uy * push;
+        } else {
+          const half = push * 0.5;
+          a.x -= ux * half;
+          a.y -= uy * half;
+          b.x += ux * half;
+          b.y += uy * half;
+        }
+      }
+    }
+
+    for (const node of nodes) {
+      if (node.fixed) continue;
+      if (node.region) clampNodeToRegion(node, node.region);
+      clampNodeToBounds(node, bounds);
+      if (avoidRect) {
+        pushNodeOutOfRect(node, avoidRect, TASK_MIN_GAP * 0.35, center);
+      }
+      if (node.region) clampNodeToRegion(node, node.region);
+      clampNodeToBounds(node, bounds);
+    }
+  }
 }
 
 function positionTasks(items) {
@@ -1526,38 +1582,60 @@ function positionTasks(items) {
           region: regions[timeframe],
         });
       }
-      const floatSeed = stableHash(task.id);
-      const floatOffset = ((floatSeed % 5) - 2) * 1.5;
-      card.style.setProperty("--float-offset", `${floatOffset}px`);
+      card.style.setProperty("--float-offset", `${(index % 3) * 6 - 6}px`);
       index += 1;
     });
   }
 
   requestAnimationFrame(() => {
-    const nodes = cards.map((node) => ({ ...node, x: 0, y: 0 }));
-    const occupiedByRegion = new Map();
+    const nodes = cards.map((node) => ({
+      ...node,
+      x: 0,
+      y: 0,
+    }));
 
-    locked.forEach((node) => {
-      clampNodeToBounds(node, orbitBounds);
-      const regionName = orderedTimeframes.find((tf) => {
-        const region = regions[tf];
-        if (!region) return false;
-        return node.x >= region.x1 && node.x <= region.x2 && node.y >= region.y1 && node.y <= region.y2;
-      });
-      if (!regionName) return;
-      const list = occupiedByRegion.get(regionName) || [];
-      list.push({ x: node.x, y: node.y });
-      occupiedByRegion.set(regionName, list);
-    });
+    const center = {
+      x: scheduleBox.left + scheduleBox.width / 2,
+      y: scheduleBox.top + scheduleBox.height / 2,
+    };
+
+    const anchors = {
+      "Today": {
+        x: leftRegion.x1 + (leftRegion.x2 - leftRegion.x1) * 0.32,
+        y: leftRegion.y1 + (centerY - leftRegion.y1) * 0.24,
+      },
+      "Tomorrow": {
+        x: leftRegion.x1 + (leftRegion.x2 - leftRegion.x1) * 0.36,
+        y: centerY + (leftRegion.y2 - centerY) * 0.7,
+      },
+      "End of the week": {
+        x: (bottomRegion.x1 + bottomRegion.x2) / 2,
+        y: bottomRegion.y1 + (bottomRegion.y2 - bottomRegion.y1) * 0.6,
+      },
+      "Next month": {
+        x: rightRegion.x1 + (rightRegion.x2 - rightRegion.x1) * 0.64,
+        y: centerY + (rightRegion.y2 - centerY) * 0.7,
+      },
+      "Way out": {
+        x: rightRegion.x1 + (rightRegion.x2 - rightRegion.x1) * 0.68,
+        y: rightRegion.y1 + (centerY - rightRegion.y1) * 0.24,
+      },
+    };
 
     orderedTimeframes.forEach((timeframe) => {
       const regionNodes = nodes.filter((n) => n.timeframe === timeframe);
       if (!regionNodes.length) return;
-      const occupied = occupiedByRegion.get(timeframe) || [];
-      placeNodesInLaneRows(regionNodes, regions[timeframe], orbitBounds, avoidRect, occupied);
+      seedNodesInRegion(regionNodes, regions[timeframe], anchors[timeframe]);
     });
 
-    [...nodes, ...locked].forEach((node) => {
+    locked.forEach((node) => {
+      clampNodeToBounds(node, orbitBounds);
+    });
+
+    const allNodes = [...nodes, ...locked];
+    resolveCollisions(allNodes, orbitBounds, avoidRect, center, TASK_MIN_CENTER_DIST);
+
+    allNodes.forEach((node) => {
       setTaskCardPosition(node.card, node.x, node.y);
     });
   });
@@ -1853,12 +1931,14 @@ function openDayEditorModal(dayKey) {
   }
   dateModal.classList.add("show");
   dateModal.setAttribute("aria-hidden", "false");
+  syncGlobalOverlayState();
   dayNameInput.focus();
 }
 
 function closeDayEditorModal() {
   dateModal.classList.remove("show");
   dateModal.setAttribute("aria-hidden", "true");
+  syncGlobalOverlayState();
   dateDayKey.value = "";
   dayNameInput.value = "";
   dateInput.value = "";
@@ -2460,6 +2540,7 @@ openCompleted.addEventListener("click", () => {
   renderCompletedList();
   completedModal.classList.add("show");
   completedModal.setAttribute("aria-hidden", "false");
+  syncGlobalOverlayState();
 });
 
 if (closeDateModal) {
@@ -2510,11 +2591,13 @@ if (dayDatePicker) {
 closeCompleted.addEventListener("click", () => {
   completedModal.classList.remove("show");
   completedModal.setAttribute("aria-hidden", "true");
+  syncGlobalOverlayState();
 });
 completedModal.addEventListener("click", (e) => {
   if (e.target === completedModal) {
     completedModal.classList.remove("show");
     completedModal.setAttribute("aria-hidden", "true");
+    syncGlobalOverlayState();
   }
 });
 

@@ -1611,28 +1611,6 @@ function positionTasks(items) {
     bottom: scheduleBox.bottom + 12,
   };
 
-  const margin = 20;
-  const centerY = scheduleBox.top + scheduleBox.height / 2;
-
-  const leftRegion = {
-    x1: orbitBounds.left,
-    x2: scheduleBox.left - margin,
-    y1: orbitBounds.top,
-    y2: orbitBounds.bottom,
-  };
-  const rightRegion = {
-    x1: scheduleBox.right + margin,
-    x2: orbitBounds.right,
-    y1: orbitBounds.top,
-    y2: orbitBounds.bottom,
-  };
-  const bottomRegion = {
-    x1: orbitBounds.left,
-    x2: orbitBounds.right,
-    y1: scheduleBox.bottom + margin,
-    y2: orbitBounds.bottom,
-  };
-
   const orderedTimeframes = [
     "Today",
     "Tomorrow",
@@ -1641,45 +1619,67 @@ function positionTasks(items) {
     "Way out",
   ];
 
+  const sideGap = 28;
+  const leftRegionBase = {
+    x1: orbitBounds.left,
+    x2: Math.max(orbitBounds.left + TASK_CARD_W + 24, scheduleBox.left - sideGap),
+    y1: orbitBounds.top,
+    y2: orbitBounds.bottom,
+  };
+  const rightRegionBase = {
+    x1: Math.min(orbitBounds.right - TASK_CARD_W - 24, scheduleBox.right + sideGap),
+    x2: orbitBounds.right,
+    y1: orbitBounds.top,
+    y2: orbitBounds.bottom,
+  };
+
   const gridOptions = {
-    "Today": { cols: 8, gapX: 12, gapY: 14, avoidRect },
-    "Tomorrow": { cols: 8, gapX: 12, gapY: 14, avoidRect },
-    "End of the week": { cols: 8, gapX: 12, gapY: 14, avoidRect },
-    "Next month": { cols: 8, gapX: 12, gapY: 14, avoidRect },
-    "Way out": { cols: 8, gapX: 12, gapY: 14, avoidRect },
+    "Today": { cols: 2, gapX: 12, gapY: 14 },
+    "Tomorrow": { cols: 2, gapX: 12, gapY: 14 },
+    "End of the week": { cols: 2, gapX: 12, gapY: 14 },
+    "Next month": { cols: 2, gapX: 12, gapY: 14 },
+    "Way out": { cols: 2, gapX: 12, gapY: 14 },
   };
 
   const regions = {};
-  const bandGap = 12;
+  const stackGap = 14;
   const rowStep = TASK_CARD_H + 14;
-  let cursorY = orbitBounds.top;
-  orderedTimeframes.forEach((timeframe, index) => {
-    const taskCount = (groups[timeframe] || []).length;
-    const remainingTimeframes = orderedTimeframes.length - index;
-    const maxBandBottom = orbitBounds.bottom - bandGap * Math.max(0, remainingTimeframes - 1);
-    let bandHeight = TASK_CARD_H + TASK_LAYOUT_PADDING * 2 + 10;
-    let region = {
-      x1: orbitBounds.left,
-      x2: orbitBounds.right,
-      y1: cursorY,
-      y2: Math.min(maxBandBottom, cursorY + bandHeight),
-    };
-    while (
-      taskCount > 0 &&
-      countAvailableGridSlots(region, gridOptions[timeframe]) < taskCount &&
-      region.y2 < maxBandBottom
-    ) {
-      bandHeight += rowStep;
-      region = {
-        x1: orbitBounds.left,
-        x2: orbitBounds.right,
+  const leftTimeframes = ["Today", "Tomorrow", "End of the week"];
+  const rightTimeframes = ["Next month", "Way out"];
+
+  function assignStackedRegions(baseRegion, timeframes) {
+    let cursorY = baseRegion.y1;
+    timeframes.forEach((timeframe, index) => {
+      const taskCount = (groups[timeframe] || []).length;
+      const remaining = timeframes.length - index;
+      const maxBottom = baseRegion.y2 - stackGap * Math.max(0, remaining - 1);
+      let height = TASK_CARD_H + TASK_LAYOUT_PADDING * 2 + 10;
+      let region = {
+        x1: baseRegion.x1,
+        x2: baseRegion.x2,
         y1: cursorY,
-        y2: Math.min(maxBandBottom, cursorY + bandHeight),
+        y2: Math.min(maxBottom, cursorY + height),
       };
-    }
-    regions[timeframe] = region;
-    cursorY = Math.min(orbitBounds.bottom, region.y2 + bandGap);
-  });
+      while (
+        taskCount > 0 &&
+        countAvailableGridSlots(region, gridOptions[timeframe]) < taskCount &&
+        region.y2 < maxBottom
+      ) {
+        height += rowStep;
+        region = {
+          x1: baseRegion.x1,
+          x2: baseRegion.x2,
+          y1: cursorY,
+          y2: Math.min(maxBottom, cursorY + height),
+        };
+      }
+      regions[timeframe] = region;
+      cursorY = Math.min(baseRegion.y2, region.y2 + stackGap);
+    });
+  }
+
+  assignStackedRegions(leftRegionBase, leftTimeframes);
+  assignStackedRegions(rightRegionBase, rightTimeframes);
 
   const cards = [];
   const locked = [];
